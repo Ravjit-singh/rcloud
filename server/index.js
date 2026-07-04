@@ -9,9 +9,15 @@ const PORT = 3000;
 
 // The absolute path to our local storage folder
 const STORAGE_DIR = path.join(__dirname, 'storage');
+// The absolute path to our frontend UI folder
+const WEB_DIR = path.join(__dirname, '../web');
 
 app.use(cors());
 app.use(express.json());
+
+// --- HOST THE FRONTEND ---
+// This tells Express to serve any files in the 'web' directory automatically
+app.use(express.static(WEB_DIR));
 
 // --- SECURITY: Path Traversal Prevention ---
 function getSafePath(filename) {
@@ -29,7 +35,6 @@ const storage = multer.diskStorage({
         cb(null, STORAGE_DIR);
     },
     filename: (req, file, cb) => {
-        // Keep original name, but you can add timestamps here later to prevent overwrites
         cb(null, file.originalname); 
     }
 });
@@ -37,11 +42,10 @@ const upload = multer({ storage });
 
 // --- ROUTES ---
 
-// 1. Get all files (Like Google Drive dashboard)
+// 1. Get all files
 app.get('/api/files', async (req, res) => {
     try {
         const files = await fs.readdir(STORAGE_DIR);
-        // Map to get extra stats like file size (good for the UI later)
         const fileStats = await Promise.all(files.map(async (file) => {
             const stats = await fs.stat(path.join(STORAGE_DIR, file));
             return { name: file, size: stats.size, isDirectory: stats.isDirectory() };
@@ -90,4 +94,5 @@ app.delete('/api/delete/:filename', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 R Cloud Engine running live on http://localhost:${PORT}`);
     console.log(`📁 Storage directory: ${STORAGE_DIR}`);
+    console.log(`🖥️  Frontend UI served at: http://localhost:${PORT}`);
 });
