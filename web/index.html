@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R Cloud Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans p-6 md:p-12">
+    
+    <div class="max-w-3xl mx-auto">
+        <h1 class="text-4xl font-bold mb-8 text-blue-400">☁️ R Cloud</h1>
+        
+        <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Upload to Vault</h2>
+            <div class="flex items-center space-x-4">
+                <input type="file" id="fileInput" 
+                    class="block w-full text-sm text-gray-400 
+                           file:mr-4 file:py-2 file:px-4 
+                           file:rounded-md file:border-0 
+                           file:text-sm file:font-bold 
+                           file:bg-blue-600 file:text-white 
+                           hover:file:bg-blue-500 cursor-pointer transition"/>
+                <button onclick="uploadFile()" 
+                    class="bg-green-500 hover:bg-green-400 text-gray-900 font-bold py-2 px-6 rounded-md shadow transition">
+                    Upload
+                </button>
+            </div>
+            <p id="uploadStatus" class="mt-3 text-sm font-medium"></p>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Your Files</h2>
+            <ul id="fileList" class="space-y-3">
+                <li class="text-gray-500 text-sm">Loading files...</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Points to our Termux Express Engine
+        const API_URL = 'http://localhost:3000/api';
+
+        // 1. Fetch and Display Files
+        async function fetchFiles() {
+            try {
+                const response = await fetch(`${API_URL}/files`);
+                const data = await response.json();
+                const list = document.getElementById('fileList');
+                list.innerHTML = ''; // Clear loading text
+                
+                if (data.files.length === 0) {
+                    list.innerHTML = '<li class="text-gray-500 text-sm italic">Vault is empty.</li>';
+                    return;
+                }
+
+                // Populate list
+                data.files.forEach(file => {
+                    const li = document.createElement('li');
+                    li.className = "flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700";
+                    li.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xl">📄</span>
+                            <span class="font-medium text-gray-200">${file.name}</span>
+                            <span class="text-xs text-gray-500 px-2 py-1 bg-gray-800 rounded">
+                                ${(file.size / 1024).toFixed(1)} KB
+                            </span>
+                        </div>
+                        <button onclick="deleteFile('${file.name}')" 
+                            class="text-red-400 hover:text-red-300 font-semibold text-sm transition">
+                            Delete
+                        </button>
+                    `;
+                    list.appendChild(li);
+                });
+            } catch (err) {
+                console.error('Error fetching files:', err);
+                document.getElementById('fileList').innerHTML = '<li class="text-red-400">Failed to connect to server.</li>';
+            }
+        }
+
+        // 2. Upload File Logic
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const status = document.getElementById('uploadStatus');
+            
+            if (fileInput.files.length === 0) {
+                status.textContent = "⚠️ Please select a file first.";
+                status.className = "mt-3 text-sm font-medium text-yellow-400";
+                return;
+            }
+
+            // Prepare the multipart form data for Multer
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            status.textContent = "⏳ Uploading to R Cloud...";
+            status.className = "mt-3 text-sm font-medium text-blue-400";
+
+            try {
+                const response = await fetch(`${API_URL}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    status.textContent = "✅ " + result.message;
+                    status.className = "mt-3 text-sm font-medium text-green-400";
+                    fileInput.value = ''; // Reset input
+                    fetchFiles(); // Refresh the list instantly
+                } else {
+                    status.textContent = "❌ Upload failed.";
+                    status.className = "mt-3 text-sm font-medium text-red-400";
+                }
+            } catch (err) {
+                status.textContent = "❌ Error connecting to server. Is the engine running?";
+                status.className = "mt-3 text-sm font-medium text-red-400";
+            }
+        }
+
+        // 3. Delete File Logic
+        async function deleteFile(filename) {
+            if(!confirm(`Are you sure you want to delete ${filename}?`)) return;
+            
+            try {
+                await fetch(`${API_URL}/delete/${filename}`, { method: 'DELETE' });
+                fetchFiles(); // Refresh UI after deletion
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Boot up UI
+        fetchFiles();
+    </script>
+</body>
+</html>
