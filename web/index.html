@@ -3,118 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>R Cloud | Drive</title>
+    <title>My Drive - R Cloud</title>
+    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'drive-bg': '#131314',
+                        'drive-surface': '#1e1f20',
+                        'drive-search': '#282a2c',
+                        'drive-text': '#e3e3e3',
+                        'drive-text-muted': '#c4c7c5',
+                        'drive-accent': '#a8c7fa',
+                        'drive-active-bg': '#004a77',
+                        'drive-new-btn': '#c2e7ff',
+                        'drive-border': '#444746'
+                    },
+                    fontFamily: {
+                        sans: ['Roboto', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Ensures Material Icons render perfectly */
+        .material-symbols-rounded {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Filled icon variant */
+        .material-symbols-rounded.filled {
+          font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Hide scrollbar for clean UI */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #444746; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #5f6368; }
+    </style>
 </head>
-<body class="bg-[#111111] text-gray-200 font-sans h-screen overflow-hidden flex flex-col">
+<body class="bg-drive-bg text-drive-text font-sans h-screen overflow-hidden flex flex-col selection:bg-drive-active-bg">
 
-    <!-- ================= AUTH SCREEN ================= -->
-    <div id="authView" class="fixed inset-0 z-50 bg-[#111111] flex items-center justify-center">
-        <div class="bg-[#1e1e1e] p-8 rounded-xl shadow-2xl border border-gray-800 w-full max-w-sm">
-            <div class="flex justify-center mb-6">
-                <span class="text-4xl">☁️</span>
+    <div id="authView" class="fixed inset-0 z-50 bg-drive-bg flex items-center justify-center">
+        <div class="bg-drive-surface p-10 rounded-[28px] w-full max-w-md border border-drive-border mx-4">
+            <div class="flex flex-col items-center mb-8">
+                <span class="material-symbols-rounded text-5xl text-drive-accent mb-4">cloud</span>
+                <h2 class="text-[24px] font-medium text-drive-text">Sign in</h2>
+                <p class="text-drive-text-muted mt-2">to continue to R Cloud</p>
             </div>
-            <h2 class="text-2xl font-medium mb-6 text-center text-gray-100">Sign in to R Cloud</h2>
-            <div class="space-y-4">
-                <input type="text" id="username" class="w-full bg-[#2a2a2a] border border-gray-700 rounded-md py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition" placeholder="Username">
-                <input type="password" id="password" class="w-full bg-[#2a2a2a] border border-gray-700 rounded-md py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition" placeholder="Password">
-                <p id="authStatus" class="text-sm font-medium text-center h-4 text-red-400"></p>
-                <div class="flex space-x-3 pt-4">
-                    <button id="loginBtn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-full transition">Login</button>
-                    <button id="registerBtn" class="flex-1 bg-transparent hover:bg-gray-800 text-blue-400 font-medium py-2.5 rounded-full border border-gray-700 transition">Register</button>
+            
+            <div class="space-y-5">
+                <div class="relative">
+                    <input type="text" id="username" class="peer w-full bg-transparent border border-drive-text-muted rounded-md py-4 px-4 text-drive-text focus:outline-none focus:border-drive-accent focus:border-2 transition-all placeholder-transparent" placeholder="Username">
+                    <label class="absolute left-4 top-4 text-drive-text-muted text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-focus:-top-2 peer-focus:left-3 peer-focus:bg-drive-surface peer-focus:px-1 peer-focus:text-xs peer-focus:text-drive-accent">Username</label>
+                </div>
+                <div class="relative">
+                    <input type="password" id="password" class="peer w-full bg-transparent border border-drive-text-muted rounded-md py-4 px-4 text-drive-text focus:outline-none focus:border-drive-accent focus:border-2 transition-all placeholder-transparent" placeholder="Password">
+                    <label class="absolute left-4 top-4 text-drive-text-muted text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-focus:-top-2 peer-focus:left-3 peer-focus:bg-drive-surface peer-focus:px-1 peer-focus:text-xs peer-focus:text-drive-accent">Password</label>
+                </div>
+                
+                <p id="authStatus" class="text-sm font-medium text-red-400 h-4"></p>
+                
+                <div class="flex justify-between items-center pt-6">
+                    <button id="registerBtn" class="text-drive-accent font-medium hover:bg-[#282a2c] py-2 px-4 rounded-full transition">Create account</button>
+                    <button id="loginBtn" class="bg-drive-accent text-[#001d35] font-medium py-2 px-6 rounded-full hover:bg-[#a8c7fa]/90 transition">Next</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ================= GOOGLE DRIVE LAYOUT ================= -->
     <div id="dashboardView" class="hidden h-full flex flex-col">
         
-        <!-- Top Navbar -->
-        <header class="h-16 flex items-center justify-between px-4 lg:px-6 bg-[#111111]">
-            <div class="flex items-center space-x-3 w-1/4">
-                <span class="text-3xl">☁️</span>
-                <span class="text-xl font-medium text-gray-100 hidden sm:block">R Cloud</span>
+        <header class="h-16 flex items-center justify-between px-4 min-h-[64px]">
+            <div class="flex items-center space-x-2 w-64 pr-4">
+                <button class="p-2 hover:bg-drive-search rounded-full transition text-drive-text">
+                    <span class="material-symbols-rounded text-[24px]">menu</span>
+                </button>
+                <div class="flex items-center space-x-2 cursor-pointer">
+                    <span class="material-symbols-rounded filled text-[40px] text-drive-accent">add_to_drive</span>
+                    <span class="text-[22px] font-medium text-drive-text pb-1">Drive</span>
+                </div>
             </div>
             
-            <!-- Search Bar -->
-            <div class="flex-1 max-w-2xl bg-[#2a2a2a] rounded-full flex items-center px-4 py-2 focus-within:bg-[#333333] transition shadow-inner border border-transparent focus-within:border-gray-600">
-                <span class="text-gray-400 text-lg mr-3">🔍</span>
-                <input type="text" placeholder="Search in Drive" class="bg-transparent border-none outline-none w-full text-gray-100 placeholder-gray-400">
+            <div class="flex-1 max-w-[720px] bg-drive-search rounded-full flex items-center px-2 py-1 h-12 focus-within:bg-drive-surface focus-within:shadow-[0_1px_3px_1px_rgba(0,0,0,0.5)] transition border border-transparent focus-within:border-drive-border ml-2 mr-4">
+                <button class="p-2 rounded-full text-drive-text-muted hover:bg-drive-border transition flex items-center justify-center">
+                    <span class="material-symbols-rounded">search</span>
+                </button>
+                <input type="text" placeholder="Search in Drive" class="bg-transparent border-none outline-none w-full text-drive-text placeholder-drive-text-muted px-2 h-full text-base">
+                <button class="p-2 rounded-full text-drive-text-muted hover:bg-drive-border transition flex items-center justify-center">
+                    <span class="material-symbols-rounded">tune</span>
+                </button>
             </div>
 
-            <!-- Profile Dropdown -->
-            <div class="w-1/4 flex justify-end relative">
-                <button id="profileBtn" class="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center hover:ring-2 ring-gray-500 transition">
-                    <span id="profileInitial">A</span>
+            <div class="flex items-center space-x-1 pl-4">
+                <button class="p-2 hover:bg-drive-search rounded-full transition text-drive-text-muted hidden md:flex items-center justify-center">
+                    <span class="material-symbols-rounded">help</span>
+                </button>
+                <button class="p-2 hover:bg-drive-search rounded-full transition text-drive-text-muted hidden md:flex items-center justify-center mr-2">
+                    <span class="material-symbols-rounded">settings</span>
                 </button>
                 
-                <!-- Dropdown Menu -->
-                <div id="profileMenu" class="hidden absolute top-12 right-0 w-48 bg-[#1e1e1e] border border-gray-700 rounded-lg shadow-xl py-2 z-50">
-                    <div class="px-4 py-2 border-b border-gray-700">
-                        <p id="profileName" class="text-sm font-medium text-white">Admin</p>
+                <div class="relative">
+                    <button id="profileBtn" class="w-10 h-10 rounded-full bg-blue-900 text-drive-accent font-medium flex items-center justify-center hover:ring-2 ring-drive-border transition overflow-hidden">
+                        <img src="https://ui-avatars.com/api/?name=User&background=0D47A1&color=a8c7fa" id="profileAvatar" alt="Profile" class="w-full h-full object-cover">
+                    </button>
+                    <div id="profileMenu" class="hidden absolute top-12 right-0 w-64 bg-drive-search border border-drive-border rounded-[16px] shadow-lg py-2 z-50 overflow-hidden">
+                        <div class="px-6 py-4 flex flex-col items-center border-b border-drive-border">
+                            <img src="https://ui-avatars.com/api/?name=User&background=0D47A1&color=a8c7fa" class="w-16 h-16 rounded-full mb-3">
+                            <p id="profileName" class="text-base font-medium text-drive-text">Admin</p>
+                        </div>
+                        <div class="p-2">
+                            <button id="logoutBtn" class="w-full text-left px-4 py-3 text-sm text-drive-text hover:bg-drive-surface rounded-[8px] flex items-center transition">
+                                <span class="material-symbols-rounded mr-3">logout</span> Sign out
+                            </button>
+                        </div>
                     </div>
-                    <button id="logoutBtn" class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 transition">Sign out</button>
                 </div>
             </div>
         </header>
 
-        <!-- Main Workspace -->
         <div class="flex-1 flex overflow-hidden">
             
-            <!-- Left Sidebar -->
-            <aside class="w-64 flex-shrink-0 flex flex-col p-4 space-y-2 hidden md:flex">
-                <button id="newBtn" class="bg-white hover:bg-gray-200 text-gray-900 font-medium rounded-2xl py-3 px-5 mb-4 shadow-lg flex items-center w-max transition">
-                    <span class="text-xl mr-2">➕</span> New
-                </button>
-                <button class="flex items-center space-x-3 bg-[#2a2a2a] text-white px-4 py-2 rounded-full font-medium">
-                    <span>🏠</span> <span>My Drive</span>
-                </button>
-                <button class="flex items-center space-x-3 hover:bg-[#2a2a2a] text-gray-300 px-4 py-2 rounded-full font-medium transition">
-                    <span>⭐</span> <span>Starred</span>
-                </button>
-                <button class="flex items-center space-x-3 hover:bg-[#2a2a2a] text-gray-300 px-4 py-2 rounded-full font-medium transition">
-                    <span>🗑️</span> <span>Trash</span>
-                </button>
-                
-                <!-- Storage Meter -->
-                <div class="mt-auto pt-4 px-4 border-t border-gray-800">
-                    <p class="text-xs text-gray-400 mb-2">Storage</p>
-                    <div class="w-full bg-gray-700 rounded-full h-1.5 mb-1">
-                        <div class="bg-blue-500 h-1.5 rounded-full" style="width: 15%"></div>
+            <aside class="w-64 flex-shrink-0 flex flex-col hidden md:flex">
+                <div class="px-3 pt-2 pb-4">
+                    <button id="newBtn" class="bg-drive-surface hover:bg-drive-search text-drive-text border border-drive-border font-medium rounded-[16px] py-4 px-5 shadow-sm flex items-center w-36 transition duration-200">
+                        <span class="material-symbols-rounded mr-3 text-[24px]">add</span>
+                        <span class="text-[14px]">New</span>
+                    </button>
+                </div>
+
+                <nav class="flex-1 px-3 space-y-1">
+                    <button class="w-full flex items-center bg-drive-active-bg text-drive-text px-4 py-2.5 rounded-full font-medium text-sm transition">
+                        <span class="material-symbols-rounded filled mr-3 text-drive-accent">home</span> Home
+                    </button>
+                    <button class="w-full flex items-center hover:bg-drive-surface text-drive-text px-4 py-2.5 rounded-full font-medium text-sm transition">
+                        <span class="material-symbols-rounded mr-3">hard_drive</span> My Drive
+                    </button>
+                    <button class="w-full flex items-center hover:bg-drive-surface text-drive-text px-4 py-2.5 rounded-full font-medium text-sm transition">
+                        <span class="material-symbols-rounded mr-3">devices</span> Computers
+                    </button>
+                    
+                    <div class="my-2 border-t border-drive-border"></div>
+                    
+                    <button class="w-full flex items-center hover:bg-drive-surface text-drive-text px-4 py-2.5 rounded-full font-medium text-sm transition">
+                        <span class="material-symbols-rounded mr-3">group</span> Shared with me
+                    </button>
+                    <button class="w-full flex items-center hover:bg-drive-surface text-drive-text px-4 py-2.5 rounded-full font-medium text-sm transition">
+                        <span class="material-symbols-rounded mr-3">schedule</span> Recent
+                    </button>
+                    <button class="w-full flex items-center hover:bg-drive-surface text-drive-text px-4 py-2.5 rounded-full font-medium text-sm transition">
+                        <span class="material-symbols-rounded mr-3">star</span> Starred
+                    </button>
+                    
+                    <div class="my-2 border-t border-drive-border"></div>
+                    
+                    <button class="w-full flex items-center hover:bg-drive-surface text-drive-text px-4 py-2.5 rounded-full font-medium text-sm transition">
+                        <span class="material-symbols-rounded mr-3">report</span> Spam
+                    </button>
+                    <button class="w-full flex items-center hover:bg-drive-surface text-drive-text px-4 py-2.5 rounded-full font-medium text-sm transition">
+                        <span class="material-symbols-rounded mr-3">delete</span> Trash
+                    </button>
+                    <button class="w-full flex items-center hover:bg-drive-surface text-drive-text px-4 py-2.5 rounded-full font-medium text-sm transition">
+                        <span class="material-symbols-rounded mr-3">cloud</span> Storage
+                    </button>
+                </nav>
+
+                <div class="p-6">
+                    <div class="w-full bg-drive-surface rounded-full h-1 mb-2">
+                        <div class="bg-drive-accent h-1 rounded-full" style="width: 15%"></div>
                     </div>
-                    <p class="text-xs text-gray-400">1.2 GB of 500 GB used</p>
+                    <p class="text-[13px] text-drive-text-muted">1.2 GB of 500 GB used</p>
+                    <button class="mt-3 px-4 py-1.5 border border-drive-border text-drive-accent text-[13px] font-medium rounded-full hover:bg-drive-search transition">Get more storage</button>
                 </div>
             </aside>
 
-            <!-- Main Content Area (Files & Folders Grid) -->
-            <main class="flex-1 bg-[#1e1e1e] rounded-tl-2xl overflow-y-auto border-t border-l border-gray-800 p-6">
-                <!-- Breadcrumb Navigation -->
-                <div class="flex items-center text-lg font-medium text-gray-200 mb-6">
-                    <span id="breadcrumbRoot" class="cursor-pointer hover:underline">My Drive</span>
-                    <!-- Nested folders will be injected here -->
+            <main class="flex-1 bg-drive-surface md:rounded-[24px] md:m-2 md:mt-0 md:mr-4 overflow-y-auto relative">
+                
+                <div class="sticky top-0 bg-drive-surface z-10 px-6 py-4 flex items-center justify-between border-b border-drive-bg/50">
+                    <button class="flex items-center text-[22px] text-drive-text hover:bg-drive-search px-3 py-1 -ml-3 rounded-md transition">
+                        <span id="breadcrumbRoot">My Drive</span>
+                        <span class="material-symbols-rounded ml-1 text-drive-text-muted">arrow_drop_down</span>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button class="p-2 hover:bg-drive-search rounded-full transition text-drive-text-muted flex items-center justify-center">
+                            <span class="material-symbols-rounded">view_list</span>
+                        </button>
+                        <button class="p-2 hover:bg-drive-search rounded-full transition text-drive-text-muted flex items-center justify-center">
+                            <span class="material-symbols-rounded">info</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Folders Section -->
-                <h3 class="text-sm font-medium text-gray-400 mb-3">Folders</h3>
-                <div id="foldersGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
-                    <!-- Folder cards injected here -->
-                </div>
+                <div class="p-6">
+                    <h3 class="text-[14px] font-medium text-drive-text mb-4">Folders</h3>
+                    <div id="foldersGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
+                        <div class="flex items-center p-3 bg-drive-bg hover:bg-drive-search border border-transparent hover:border-drive-border rounded-[12px] cursor-pointer transition">
+                            <span class="material-symbols-rounded filled text-drive-text-muted mr-3">folder</span>
+                            <span class="text-sm font-medium text-drive-text truncate">Project R Cloud</span>
+                        </div>
+                    </div>
 
-                <!-- Files Section -->
-                <h3 class="text-sm font-medium text-gray-400 mb-3">Files</h3>
-                <div id="filesGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    <!-- File cards injected here -->
+                    <h3 class="text-[14px] font-medium text-drive-text mb-4">Files</h3>
+                    <div id="filesGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                        <div class="flex flex-col bg-drive-bg hover:bg-drive-search border border-transparent hover:border-drive-border rounded-[12px] overflow-hidden cursor-pointer transition">
+                            <div class="h-32 bg-[#2a2b2d] flex items-center justify-center">
+                                <span class="material-symbols-rounded text-5xl text-blue-400">description</span>
+                            </div>
+                            <div class="p-3 flex items-center">
+                                <span class="material-symbols-rounded text-blue-400 text-[18px] mr-2">description</span>
+                                <span class="text-sm font-medium text-drive-text truncate">Architecture.pdf</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>
     </div>
 
-    <!-- Hidden File Input for uploads -->
     <input type="file" id="hiddenFileInput" class="hidden" multiple>
 
-    <!-- Import our modular scripts in the correct order -->
     <script src="/js/state.js"></script>
     <script src="/js/api.js"></script>
     <script src="/js/ui.js"></script>
