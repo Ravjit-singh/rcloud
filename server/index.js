@@ -144,6 +144,34 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         res.status(500).json({ error: "Failed to save file record in database" });
     }
 });
+// ==========================================
+//          MEDIA PREVIEW & DOWNLOAD
+// ==========================================
+
+// Stream Media for Preview
+app.get('/api/view/:id', authenticateToken, async (req, res) => {
+    try {
+        const fileRecord = await app.locals.db.get(`SELECT stored_name FROM files WHERE id = ? AND user_id = ?`, [req.params.id, req.user.id]);
+        if (!fileRecord) return res.status(404).send("File not found");
+        
+        // res.sendFile automatically handles range requests for video seeking!
+        res.sendFile(path.join(FILES_DIR, fileRecord.stored_name));
+    } catch (err) {
+        res.status(500).send("Error loading media");
+    }
+});
+
+// Direct File Download
+app.get('/api/download/:id', authenticateToken, async (req, res) => {
+    try {
+        const fileRecord = await app.locals.db.get(`SELECT original_name, stored_name FROM files WHERE id = ? AND user_id = ?`, [req.params.id, req.user.id]);
+        if (!fileRecord) return res.status(404).send("File not found");
+        
+        res.download(path.join(FILES_DIR, fileRecord.stored_name), fileRecord.original_name);
+    } catch (err) {
+        res.status(500).send("Error downloading file");
+    }
+});
 
 // Delete a file (Bulletproof Version)
 app.delete('/api/delete/:id', authenticateToken, async (req, res) => {
