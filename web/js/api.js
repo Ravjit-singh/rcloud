@@ -11,31 +11,20 @@ const api = {
         }
     },
 
-    async register(username, password) {
-        return this.request('/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
+    async register(u, p) { return this.request('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) }); },
+    async login(u, p) { return this.request('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) }); },
+    async logout() { return this.request('/logout', { method: 'POST' }); },
+    
+    // Drive Navigation
+    async getDrive(folderId = null) {
+        const endpoint = folderId ? `/drive/${folderId}` : '/drive';
+        return this.request(endpoint);
     },
-
-    async login(username, password) {
-        return this.request('/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
+    
+    // Folder Creation
+    async createFolder(name, parentId) {
+        return this.request('/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, parentId }) });
     },
-
-    async logout() {
-        return this.request('/logout', { method: 'POST' });
-    },
-
-    async getFiles() {
-        return this.request('/files');
-    },
-
-    async deleteFile(id) {
-        return this.request(`/delete/${id}`, { method: 'DELETE' });
-    }
+    
+    async deleteFile(id) { return this.request(`/delete/${id}`, { method: 'DELETE' }); }
 };
