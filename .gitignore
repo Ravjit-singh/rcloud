@@ -1,5 +1,4 @@
-node_modules/
-server/storage/
+server/node_modules/
+server/files/
 .env
-node_modules/
-node_modules/
+server/*.db

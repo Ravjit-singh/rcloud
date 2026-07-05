@@ -38,8 +38,8 @@
     </div>
 
     <script>
-        // Points to our Termux Express Engine
-        const API_URL = 'http://localhost:3000/api';
+        // Changed to a relative path. This ensures it works locally and across your network.
+        const API_URL = '/api';
 
         // 1. Fetch and Display Files
         async function fetchFiles() {
@@ -47,14 +47,13 @@
                 const response = await fetch(`${API_URL}/files`);
                 const data = await response.json();
                 const list = document.getElementById('fileList');
-                list.innerHTML = ''; // Clear loading text
+                list.innerHTML = ''; 
                 
                 if (data.files.length === 0) {
                     list.innerHTML = '<li class="text-gray-500 text-sm italic">Vault is empty.</li>';
                     return;
                 }
 
-                // Populate list
                 data.files.forEach(file => {
                     const li = document.createElement('li');
                     li.className = "flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700";
@@ -90,7 +89,6 @@
                 return;
             }
 
-            // Prepare the multipart form data for Multer
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
 
@@ -107,14 +105,14 @@
                 if (result.success) {
                     status.textContent = "✅ " + result.message;
                     status.className = "mt-3 text-sm font-medium text-green-400";
-                    fileInput.value = ''; // Reset input
-                    fetchFiles(); // Refresh the list instantly
+                    fileInput.value = ''; 
+                    fetchFiles(); 
                 } else {
                     status.textContent = "❌ Upload failed.";
                     status.className = "mt-3 text-sm font-medium text-red-400";
                 }
             } catch (err) {
-                status.textContent = "❌ Error connecting to server. Is the engine running?";
+                status.textContent = "❌ Error connecting to server.";
                 status.className = "mt-3 text-sm font-medium text-red-400";
             }
         }
@@ -125,13 +123,12 @@
             
             try {
                 await fetch(`${API_URL}/delete/${filename}`, { method: 'DELETE' });
-                fetchFiles(); // Refresh UI after deletion
+                fetchFiles(); 
             } catch (err) {
                 console.error(err);
             }
         }
 
-        // Boot up UI
         fetchFiles();
     </script>
 </body>
