@@ -3,30 +3,36 @@ const multer = require('multer');
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
-const { initDB } = require('./db'); // <-- Add this line
-const cookieParser = require('cookie-parser'); // <-- Add this for later auth
-
+const cookieParser = require('cookie-parser');
+const { initDB } = require('./db'); 
 
 const app = express();
 const PORT = 3000;
 
-// The absolute path to our local storage folder
-const STORAGE_DIR = path.join(__dirname, 'storage');
-// The absolute path to our frontend UI folder
+// Re-routed to your new 'files' directory
+const FILES_DIR = path.join(__dirname, 'files');
 const WEB_DIR = path.join(__dirname, '../web');
 
 app.use(cors());
 app.use(express.json());
-
-// --- HOST THE FRONTEND ---
-// This tells Express to serve any files in the 'web' directory automatically
+app.use(cookieParser());
 app.use(express.static(WEB_DIR));
+
+// --- DIRECTORY INITIALIZATION ---
+// This ensures the server doesn't crash if the files folder is missing
+async function ensureDirExists(dirPath) {
+    try {
+        await fs.access(dirPath);
+    } catch (error) {
+        await fs.mkdir(dirPath, { recursive: true });
+    }
+}
 
 // --- SECURITY: Path Traversal Prevention ---
 function getSafePath(filename) {
     const safeSuffix = path.normalize(filename).replace(/^(\.\.(\/|\\|$))+/, '');
-    const finalPath = path.join(STORAGE_DIR, safeSuffix);
-    if (!finalPath.startsWith(STORAGE_DIR)) {
+    const finalPath = path.join(FILES_DIR, safeSuffix);
+    if (!finalPath.startsWith(FILES_DIR)) {
         throw new Error("Security Exception: Path Traversal Attempted");
     }
     return finalPath;
@@ -35,7 +41,7 @@ function getSafePath(filename) {
 // --- MULTER: Storage Configuration ---
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, STORAGE_DIR);
+        cb(null, FILES_DIR);
     },
     filename: (req, file, cb) => {
         cb(null, file.originalname); 
@@ -48,14 +54,14 @@ const upload = multer({ storage });
 // 1. Get all files
 app.get('/api/files', async (req, res) => {
     try {
-        const files = await fs.readdir(STORAGE_DIR);
+        const files = await fs.readdir(FILES_DIR);
         const fileStats = await Promise.all(files.map(async (file) => {
-            const stats = await fs.stat(path.join(STORAGE_DIR, file));
+            const stats = await fs.stat(path.join(FILES_DIR, file));
             return { name: file, size: stats.size, isDirectory: stats.isDirectory() };
         }));
         res.json({ success: true, files: fileStats });
     } catch (err) {
-        res.status(500).json({ error: "Failed to read storage directory" });
+        res.status(500).json({ error: "Failed to read files directory" });
     }
 });
 
@@ -93,9 +99,21 @@ app.delete('/api/delete/:filename', async (req, res) => {
     }
 });
 
-// --- BOOT UP ---
-app.listen(PORT, () => {
-    console.log(`🚀 R Cloud Engine running live on http://localhost:${PORT}`);
-    console.log(`📁 Storage directory: ${STORAGE_DIR}`);
-    console.log(`🖥️  Frontend UI served at: http://localhost:${PORT}`);
-});
+// --- BOOT UP SEQUENCE ---
+async function startServer() {
+    try {
+        await ensureDirExists(FILES_DIR);
+        
+        const db = await initDB();
+        app.locals.db = db; 
+
+        app.listen(PORT, () => {
+            console.log(`🚀 R Cloud Engine running live on http://localhost:${PORT}`);
+            console.log(`📁 Files directory: ${FILES_DIR}`);
+        });
+    } catch (err) {
+        console.error("❌ Failed to start server:", err);
+    }
+}
+
+startServer();
