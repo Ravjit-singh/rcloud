@@ -2,18 +2,12 @@ const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const path = require('path');
 
-// THE FIX: We changed the filename to rcloud_v2.db to force a clean generation
 const DB_PATH = path.join(__dirname, 'rcloud_v2.db');
 
 async function initDB() {
-    const db = await open({
-        filename: DB_PATH,
-        driver: sqlite3.Database
-    });
+    const db = await open({ filename: DB_PATH, driver: sqlite3.Database });
+    console.log("🗄️  SQLite Database connected.");
 
-    console.log("🗄️  SQLite Database (v2) connected successfully.");
-
-    // 1. Users Table
     await db.exec(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,7 +17,6 @@ async function initDB() {
         )
     `);
 
-    // 2. Folders Table
     await db.exec(`
         CREATE TABLE IF NOT EXISTS folders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,7 +29,6 @@ async function initDB() {
         )
     `);
 
-    // 3. Files Table (Now with folder_id)
     await db.exec(`
         CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,13 +37,22 @@ async function initDB() {
             original_name TEXT NOT NULL,
             stored_name TEXT UNIQUE NOT NULL,
             size INTEGER NOT NULL,
+            is_public INTEGER DEFAULT 0, 
             upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
             FOREIGN KEY (folder_id) REFERENCES folders (id) ON DELETE CASCADE
         )
     `);
 
-    console.log("✅ Database tables (Users, Folders, Files) verified.");
+    // AUTO-MIGRATION: Safely add the column to an existing database if it's missing!
+    try {
+        await db.exec(`ALTER TABLE files ADD COLUMN is_public INTEGER DEFAULT 0`);
+        console.log("🛠️ Database migrated: Added 'is_public' column.");
+    } catch (err) {
+        // If it throws an error, the column already exists. Safe to ignore!
+    }
+
+    console.log("✅ Database tables verified.");
     return db;
 }
 
