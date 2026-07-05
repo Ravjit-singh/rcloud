@@ -114,31 +114,59 @@ app.post('/api/logout', (req, res) => {
 
 
 // ==========================================
-//          PROTECTED FILE ROUTES
+//          PROTECTED DRIVE ROUTES
 // ==========================================
 
-// 1. Get ONLY the logged-in user's files
-app.get('/api/files', authenticateToken, async (req, res) => {
+// 1. Get contents of a specific folder (or root if no ID provided)
+app.get('/api/drive/:folderId?', authenticateToken, async (req, res) => {
+    const folderId = req.params.folderId || null;
+    
     try {
-        // We now ask the database for the files, not the hard drive directly
-        const files = await app.locals.db.all(
-            `SELECT id, original_name as name, stored_name, size FROM files WHERE user_id = ?`, 
-            [req.user.id]
-        );
-        res.json({ success: true, files: files });
+        // Fetch Folders in this directory
+        const folderQuery = folderId 
+            ? `SELECT id, name FROM folders WHERE user_id = ? AND parent_id = ?` 
+            : `SELECT id, name FROM folders WHERE user_id = ? AND parent_id IS NULL`;
+        const folders = await app.locals.db.all(folderQuery, folderId ? [req.user.id, folderId] : [req.user.id]);
+
+        // Fetch Files in this directory
+        const fileQuery = folderId 
+            ? `SELECT id, original_name as name, size FROM files WHERE user_id = ? AND folder_id = ?` 
+            : `SELECT id, original_name as name, size FROM files WHERE user_id = ? AND folder_id IS NULL`;
+        const files = await app.locals.db.all(fileQuery, folderId ? [req.user.id, folderId] : [req.user.id]);
+
+        res.json({ success: true, folders, files });
     } catch (err) {
-        res.status(500).json({ error: "Failed to fetch files from database" });
+        res.status(500).json({ error: "Failed to fetch drive contents" });
     }
 });
 
-// 2. Upload a file and link it to the user
+// 2. Create a new folder
+app.post('/api/folders', authenticateToken, async (req, res) => {
+    const { name, parentId } = req.body;
+    if (!name) return res.status(400).json({ error: "Folder name is required" });
+
+    try {
+        const result = await app.locals.db.run(
+            `INSERT INTO folders (user_id, name, parent_id) VALUES (?, ?, ?)`,
+            [req.user.id, name, parentId || null]
+        );
+        res.json({ success: true, folderId: result.lastID, message: "Folder created" });
+    } catch (err) {
+        res.status(500).json({ error: "Failed to create folder" });
+    }
+});
+
+// 3. Upload a file (Now supports dropping into specific folders)
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    
+    // Multer puts text fields from FormData into req.body
+    const folderId = req.body.folderId && req.body.folderId !== 'null' ? req.body.folderId : null;
 
     try {
         await app.locals.db.run(
-            `INSERT INTO files (user_id, original_name, stored_name, size) VALUES (?, ?, ?, ?)`,
-            [req.user.id, req.file.originalname, req.file.filename, req.file.size]
+            `INSERT INTO files (user_id, folder_id, original_name, stored_name, size) VALUES (?, ?, ?, ?, ?)`,
+            [req.user.id, folderId, req.file.originalname, req.file.filename, req.file.size]
         );
         res.json({ success: true, message: "File securely encrypted into your vault" });
     } catch (err) {
@@ -146,10 +174,9 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     }
 });
 
-// 3. Delete a file
+// 4. Delete a file
 app.delete('/api/delete/:id', authenticateToken, async (req, res) => {
     try {
-        // First, check if the file belongs to this user
         const fileRecord = await app.locals.db.get(
             `SELECT stored_name FROM files WHERE id = ? AND user_id = ?`, 
             [req.params.id, req.user.id]
@@ -157,11 +184,8 @@ app.delete('/api/delete/:id', authenticateToken, async (req, res) => {
 
         if (!fileRecord) return res.status(404).json({ error: "File not found or unauthorized" });
 
-        // Delete the physical file from the hard drive
         const targetPath = path.join(FILES_DIR, fileRecord.stored_name);
         await fs.unlink(targetPath);
-
-        // Delete the record from the database
         await app.locals.db.run(`DELETE FROM files WHERE id = ?`, [req.params.id]);
 
         res.json({ success: true, message: "File permanently deleted" });
@@ -179,7 +203,7 @@ async function startServer() {
 
         app.listen(PORT, () => {
             console.log(`🚀 R Cloud Engine running live on http://localhost:${PORT}`);
-            console.log(`🔒 Vault securely authenticated and tracking files.`);
+            console.log(`🔒 Vault securely authenticated with dynamic folder tracking.`);
         });
     } catch (err) {
         console.error("❌ Failed to start server:", err);
