@@ -2,7 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'rcloud.db');
+// THE FIX: We changed the filename to rcloud_v2.db to force a clean generation
+const DB_PATH = path.join(__dirname, 'rcloud_v2.db');
 
 async function initDB() {
     const db = await open({
@@ -10,7 +11,7 @@ async function initDB() {
         driver: sqlite3.Database
     });
 
-    console.log("🗄️  SQLite Database connected successfully.");
+    console.log("🗄️  SQLite Database (v2) connected successfully.");
 
     // 1. Users Table
     await db.exec(`
@@ -22,8 +23,7 @@ async function initDB() {
         )
     `);
 
-    // 2. Folders Table (NEW)
-    // parent_id allows folders to live inside other folders infinitely
+    // 2. Folders Table
     await db.exec(`
         CREATE TABLE IF NOT EXISTS folders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,8 +36,7 @@ async function initDB() {
         )
     `);
 
-    // 3. Files Table (UPDATED)
-    // folder_id maps the file to its specific folder (NULL means it's in the root My Drive)
+    // 3. Files Table (Now with folder_id)
     await db.exec(`
         CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

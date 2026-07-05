@@ -134,7 +134,8 @@ app.get(['/api/drive/:folderId'], authenticateToken, async (req, res) => {
             : `SELECT id, original_name as name, size FROM files WHERE user_id = ? AND folder_id IS NULL`;
         const files = await app.locals.db.all(fileQuery, folderId ? [req.user.id, folderId] : [req.user.id]);
 
-        res.json({ success: true, folders, files });
+        res.json({ success: true, folders, files, username: req.user.username });
+
     } catch (err) {
         res.status(500).json({ error: "Failed to fetch drive contents" });
     }
