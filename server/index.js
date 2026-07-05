@@ -118,7 +118,7 @@ app.post('/api/logout', (req, res) => {
 // ==========================================
 
 // 1. Get contents of a specific folder (or root if no ID provided)
-app.get('/api/drive/:folderId?', authenticateToken, async (req, res) => {
+app.get(['/api/drive/:folderId'], authenticateToken, async (req, res) => {
     const folderId = req.params.folderId || null;
     
     try {
