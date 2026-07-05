@@ -3,6 +3,9 @@ const multer = require('multer');
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
+const { initDB } = require('./db'); // <-- Add this line
+const cookieParser = require('cookie-parser'); // <-- Add this for later auth
+
 
 const app = express();
 const PORT = 3000;
