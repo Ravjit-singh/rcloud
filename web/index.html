@@ -3,253 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>R Cloud | Secure Vault</title>
+    <title>R Cloud | Drive</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans p-6 md:p-12 min-h-screen flex flex-col items-center">
-    
-    <div class="w-full max-w-3xl">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-4xl font-bold text-blue-400">☁️ R Cloud</h1>
-            <button id="logoutBtn" onclick="logout()" class="hidden text-sm bg-red-500 hover:bg-red-600 text-white py-1 px-4 rounded transition">
-                Logout
-            </button>
-        </div>
-        
-        <div id="authView" class="bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700 max-w-md mx-auto mt-10">
-            <h2 class="text-2xl font-semibold mb-6 text-center">Enter the Vault</h2>
-            
+<body class="bg-[#111111] text-gray-200 font-sans h-screen overflow-hidden flex flex-col">
+
+    <!-- ================= AUTH SCREEN ================= -->
+    <div id="authView" class="fixed inset-0 z-50 bg-[#111111] flex items-center justify-center">
+        <div class="bg-[#1e1e1e] p-8 rounded-xl shadow-2xl border border-gray-800 w-full max-w-sm">
+            <div class="flex justify-center mb-6">
+                <span class="text-4xl">☁️</span>
+            </div>
+            <h2 class="text-2xl font-medium mb-6 text-center text-gray-100">Sign in to R Cloud</h2>
             <div class="space-y-4">
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Username</label>
-                    <input type="text" id="username" class="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:border-blue-500" placeholder="admin">
+                <input type="text" id="username" class="w-full bg-[#2a2a2a] border border-gray-700 rounded-md py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition" placeholder="Username">
+                <input type="password" id="password" class="w-full bg-[#2a2a2a] border border-gray-700 rounded-md py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition" placeholder="Password">
+                <p id="authStatus" class="text-sm font-medium text-center h-4 text-red-400"></p>
+                <div class="flex space-x-3 pt-4">
+                    <button id="loginBtn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-full transition">Login</button>
+                    <button id="registerBtn" class="flex-1 bg-transparent hover:bg-gray-800 text-blue-400 font-medium py-2.5 rounded-full border border-gray-700 transition">Register</button>
                 </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Password</label>
-                    <input type="password" id="password" class="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:border-blue-500" placeholder="••••••••">
-                </div>
-                
-                <p id="authStatus" class="text-sm font-medium text-center h-4"></p>
-
-                <div class="flex space-x-3 pt-2">
-                    <button onclick="login()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-md transition">
-                        Login
-                    </button>
-                    <button onclick="register()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-md transition border border-gray-600">
-                        Register
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div id="dashboardView" class="hidden">
-            <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-8">
-                <h2 class="text-xl font-semibold mb-4">Secure Upload</h2>
-                <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                    <input type="file" id="fileInput" 
-                        class="block w-full text-sm text-gray-400 
-                               file:mr-4 file:py-2 file:px-4 
-                               file:rounded-md file:border-0 
-                               file:text-sm file:font-bold 
-                               file:bg-blue-600 file:text-white 
-                               hover:file:bg-blue-500 cursor-pointer transition"/>
-                    <button onclick="uploadFile()" 
-                        class="w-full sm:w-auto bg-green-500 hover:bg-green-400 text-gray-900 font-bold py-2 px-8 rounded-md shadow transition">
-                        Upload
-                    </button>
-                </div>
-                <p id="uploadStatus" class="mt-3 text-sm font-medium"></p>
-            </div>
-
-            <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-                <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Your Private Files</h2>
-                <ul id="fileList" class="space-y-3">
-                    </ul>
             </div>
         </div>
     </div>
 
-    <script>
-        const API_URL = '/api';
-
-        // --- DOM Elements ---
-        const authView = document.getElementById('authView');
-        const dashboardView = document.getElementById('dashboardView');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const authStatus = document.getElementById('authStatus');
+    <!-- ================= GOOGLE DRIVE LAYOUT ================= -->
+    <div id="dashboardView" class="hidden h-full flex flex-col">
         
-        // --- View Toggler ---
-        function showDashboard() {
-            authView.classList.add('hidden');
-            dashboardView.classList.remove('hidden');
-            logoutBtn.classList.remove('hidden');
-            fetchFiles();
-        }
-
-        function showAuth() {
-            dashboardView.classList.add('hidden');
-            logoutBtn.classList.add('hidden');
-            authView.classList.remove('hidden');
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-        }
-
-        // --- Auth Logic ---
-        async function register() {
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
-            authStatus.textContent = "⏳ Registering...";
-            authStatus.className = "text-sm font-medium text-center h-4 text-blue-400";
+        <!-- Top Navbar -->
+        <header class="h-16 flex items-center justify-between px-4 lg:px-6 bg-[#111111]">
+            <div class="flex items-center space-x-3 w-1/4">
+                <span class="text-3xl">☁️</span>
+                <span class="text-xl font-medium text-gray-100 hidden sm:block">R Cloud</span>
+            </div>
             
-            try {
-                const res = await fetch(`${API_URL}/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: u, password: p })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    authStatus.textContent = "✅ Registered! You can now login.";
-                    authStatus.className = "text-sm font-medium text-center h-4 text-green-400";
-                } else {
-                    authStatus.textContent = "❌ " + data.error;
-                    authStatus.className = "text-sm font-medium text-center h-4 text-red-400";
-                }
-            } catch (err) {
-                authStatus.textContent = "❌ Server error.";
-            }
-        }
+            <!-- Search Bar -->
+            <div class="flex-1 max-w-2xl bg-[#2a2a2a] rounded-full flex items-center px-4 py-2 focus-within:bg-[#333333] transition shadow-inner border border-transparent focus-within:border-gray-600">
+                <span class="text-gray-400 text-lg mr-3">🔍</span>
+                <input type="text" placeholder="Search in Drive" class="bg-transparent border-none outline-none w-full text-gray-100 placeholder-gray-400">
+            </div>
 
-        async function login() {
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
-            authStatus.textContent = "⏳ Logging in...";
+            <!-- Profile Dropdown -->
+            <div class="w-1/4 flex justify-end relative">
+                <button id="profileBtn" class="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center hover:ring-2 ring-gray-500 transition">
+                    <span id="profileInitial">A</span>
+                </button>
+                
+                <!-- Dropdown Menu -->
+                <div id="profileMenu" class="hidden absolute top-12 right-0 w-48 bg-[#1e1e1e] border border-gray-700 rounded-lg shadow-xl py-2 z-50">
+                    <div class="px-4 py-2 border-b border-gray-700">
+                        <p id="profileName" class="text-sm font-medium text-white">Admin</p>
+                    </div>
+                    <button id="logoutBtn" class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 transition">Sign out</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <div class="flex-1 flex overflow-hidden">
             
-            try {
-                const res = await fetch(`${API_URL}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: u, password: p })
-                });
-                const data = await res.json();
+            <!-- Left Sidebar -->
+            <aside class="w-64 flex-shrink-0 flex flex-col p-4 space-y-2 hidden md:flex">
+                <button id="newBtn" class="bg-white hover:bg-gray-200 text-gray-900 font-medium rounded-2xl py-3 px-5 mb-4 shadow-lg flex items-center w-max transition">
+                    <span class="text-xl mr-2">➕</span> New
+                </button>
+                <button class="flex items-center space-x-3 bg-[#2a2a2a] text-white px-4 py-2 rounded-full font-medium">
+                    <span>🏠</span> <span>My Drive</span>
+                </button>
+                <button class="flex items-center space-x-3 hover:bg-[#2a2a2a] text-gray-300 px-4 py-2 rounded-full font-medium transition">
+                    <span>⭐</span> <span>Starred</span>
+                </button>
+                <button class="flex items-center space-x-3 hover:bg-[#2a2a2a] text-gray-300 px-4 py-2 rounded-full font-medium transition">
+                    <span>🗑️</span> <span>Trash</span>
+                </button>
                 
-                if (data.success) {
-                    authStatus.textContent = "";
-                    showDashboard();
-                } else {
-                    authStatus.textContent = "❌ " + data.error;
-                    authStatus.className = "text-sm font-medium text-center h-4 text-red-400";
-                }
-            } catch (err) {
-                authStatus.textContent = "❌ Server error.";
-            }
-        }
+                <!-- Storage Meter -->
+                <div class="mt-auto pt-4 px-4 border-t border-gray-800">
+                    <p class="text-xs text-gray-400 mb-2">Storage</p>
+                    <div class="w-full bg-gray-700 rounded-full h-1.5 mb-1">
+                        <div class="bg-blue-500 h-1.5 rounded-full" style="width: 15%"></div>
+                    </div>
+                    <p class="text-xs text-gray-400">1.2 GB of 500 GB used</p>
+                </div>
+            </aside>
 
-        async function logout() {
-            await fetch(`${API_URL}/logout`, { method: 'POST' });
-            showAuth();
-        }
+            <!-- Main Content Area (Files & Folders Grid) -->
+            <main class="flex-1 bg-[#1e1e1e] rounded-tl-2xl overflow-y-auto border-t border-l border-gray-800 p-6">
+                <!-- Breadcrumb Navigation -->
+                <div class="flex items-center text-lg font-medium text-gray-200 mb-6">
+                    <span id="breadcrumbRoot" class="cursor-pointer hover:underline">My Drive</span>
+                    <!-- Nested folders will be injected here -->
+                </div>
 
-        // --- File System Logic ---
-        async function fetchFiles() {
-            try {
-                const res = await fetch(`${API_URL}/files`);
-                
-                // If the backend rejects us, our token is missing or expired. Boot back to login.
-                if (res.status === 401 || res.status === 403) {
-                    showAuth();
-                    return;
-                }
+                <!-- Folders Section -->
+                <h3 class="text-sm font-medium text-gray-400 mb-3">Folders</h3>
+                <div id="foldersGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
+                    <!-- Folder cards injected here -->
+                </div>
 
-                const data = await res.json();
-                const list = document.getElementById('fileList');
-                list.innerHTML = ''; 
-                
-                if (data.files.length === 0) {
-                    list.innerHTML = '<li class="text-gray-500 text-sm italic">Vault is empty.</li>';
-                    return;
-                }
+                <!-- Files Section -->
+                <h3 class="text-sm font-medium text-gray-400 mb-3">Files</h3>
+                <div id="filesGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    <!-- File cards injected here -->
+                </div>
+            </main>
+        </div>
+    </div>
 
-                data.files.forEach(file => {
-                    const li = document.createElement('li');
-                    li.className = "flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700";
-                    // Notice we use file.id for deletion now, matching the new backend logic!
-                    li.innerHTML = `
-                        <div class="flex items-center space-x-3 overflow-hidden">
-                            <span class="text-xl shrink-0">📄</span>
-                            <span class="font-medium text-gray-200 truncate">${file.name}</span>
-                            <span class="text-xs text-gray-500 px-2 py-1 bg-gray-800 rounded shrink-0">
-                                ${(file.size / 1024).toFixed(1)} KB
-                            </span>
-                        </div>
-                        <button onclick="deleteFile('${file.id}')" 
-                            class="shrink-0 text-red-400 hover:text-red-300 font-semibold text-sm transition ml-4">
-                            Delete
-                        </button>
-                    `;
-                    list.appendChild(li);
-                });
-            } catch (err) {
-                document.getElementById('fileList').innerHTML = '<li class="text-red-400">Failed to connect to server.</li>';
-            }
-        }
+    <!-- Hidden File Input for uploads -->
+    <input type="file" id="hiddenFileInput" class="hidden" multiple>
 
-        async function uploadFile() {
-            const fileInput = document.getElementById('fileInput');
-            const status = document.getElementById('uploadStatus');
-            
-            if (fileInput.files.length === 0) {
-                status.textContent = "⚠️ Please select a file first.";
-                status.className = "mt-3 text-sm font-medium text-yellow-400";
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-
-            status.textContent = "⏳ Encrypting into vault...";
-            status.className = "mt-3 text-sm font-medium text-blue-400";
-
-            try {
-                const res = await fetch(`${API_URL}/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                // If token expired during upload
-                if (res.status === 401 || res.status === 403) return showAuth();
-
-                const result = await res.json();
-                if (result.success) {
-                    status.textContent = "✅ " + result.message;
-                    status.className = "mt-3 text-sm font-medium text-green-400";
-                    fileInput.value = ''; 
-                    fetchFiles(); 
-                } else {
-                    status.textContent = "❌ Upload failed.";
-                    status.className = "mt-3 text-sm font-medium text-red-400";
-                }
-            } catch (err) {
-                status.textContent = "❌ Network error.";
-                status.className = "mt-3 text-sm font-medium text-red-400";
-            }
-        }
-
-        async function deleteFile(id) {
-            if(!confirm(`Are you sure you want to permanently delete this file?`)) return;
-            
-            try {
-                const res = await fetch(`${API_URL}/delete/${id}`, { method: 'DELETE' });
-                if (res.status === 401 || res.status === 403) return showAuth();
-                fetchFiles(); 
-            } catch (err) {
-                console.error(err);
-            }
-        }
-
-        // On initial load, try to fetch files. If we have a valid cookie, it bypasses login!
-        fetchFiles();
-    </script>
+    <!-- Import our modular scripts in the correct order -->
+    <script src="/js/state.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/app.js"></script>
 </body>
 </html>
