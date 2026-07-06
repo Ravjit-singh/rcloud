@@ -3,7 +3,6 @@ const ui = {
     filesGrid: document.getElementById('filesGrid'),
     toastTimer: null,
     
-    // --- GLOBAL TOAST SYSTEM ---
     showToast(message, icon = 'info', color = 'text-md-accent') {
         const toast = document.getElementById('toast');
         const toastIcon = document.getElementById('toastIcon');
@@ -23,6 +22,19 @@ const ui = {
         if (['zip', 'rar', 'apk'].includes(ext)) return { icon: 'folder_zip', color: 'text-yellow-500' };
         if (['js', 'html', 'css', 'ts', 'json'].includes(ext)) return { icon: 'code', color: 'text-green-400' };
         return { icon: 'description', color: 'text-blue-400' };
+    },
+
+    formatSize(bytes) {
+        if (!bytes) return '--';
+        const k = 1024; const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    },
+
+    formatDate(dateStr) {
+        if (!dateStr) return '--';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     },
 
     renderBreadcrumbs() {
@@ -47,7 +59,6 @@ const ui = {
         });
     },
 
-    // --- SELECTION ENGINE ---
     toggleSelect(rawId, type, name) {
         const id = String(rawId); 
         if (state.selected.has(id)) state.selected.delete(id);
@@ -101,9 +112,7 @@ const ui = {
     openItemMenu(e, id, type, name, isPublic = false, shareId) {
         e.stopPropagation();
         state.activeMenuTarget = { id, type, name, isPublic, shareId };
-        
         const menu = document.getElementById('itemMenu');
-        const pubBtn = document.getElementById('menuItemTogglePublic');
         const copyBtn = document.getElementById('menuItemCopyLink');
         
         if (isPublic) {
@@ -122,7 +131,6 @@ const ui = {
         menu.classList.remove('hidden');
     },
 
-    // --- DRIVE ENGINE ---
     async loadDrive(fetchData = true) {
         if (fetchData) {
             const response = await api.getDrive(state.currentFolderId);
@@ -145,13 +153,53 @@ const ui = {
         }
     },
 
-    // --- DYNAMIC RENDERING ---
+    // NEW: Client-Side Sorting Engine
+    setSort(by, forceOrder = null) {
+        if (forceOrder) {
+            state.sortOrder = forceOrder;
+        } else {
+            if (state.sortBy === by) state.sortOrder = state.sortOrder === 'asc' ? 'desc' : 'asc';
+            else state.sortOrder = 'asc';
+        }
+        state.sortBy = by;
+        
+        localStorage.setItem('rcloud_sort', state.sortBy);
+        localStorage.setItem('rcloud_sortOrder', state.sortOrder);
+        
+        // Update UI Indicator
+        const map = { 'name': 'Name', 'date': 'Date Modified', 'size': 'File Size' };
+        document.getElementById('sortIndicatorLabel').textContent = map[state.sortBy];
+        document.getElementById('sortIndicatorIcon').textContent = state.sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward';
+        
+        document.getElementById('sortMenu').classList.add('hidden');
+        this.renderContent();
+    },
+
+    sortArray(arr) {
+        return arr.sort((a, b) => {
+            let valA, valB;
+            if (state.sortBy === 'name') { valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); }
+            else if (state.sortBy === 'date') { valA = new Date(a.date).getTime() || 0; valB = new Date(b.date).getTime() || 0; }
+            else if (state.sortBy === 'size') { valA = a.size || 0; valB = b.size || 0; }
+            
+            if (valA < valB) return state.sortOrder === 'asc' ? -1 : 1;
+            if (valA > valB) return state.sortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
+    },
+
     renderContent() {
         this.foldersGrid.innerHTML = '';
         this.filesGrid.innerHTML = '';
 
-        const { folders, files } = state.currentData;
+        let { folders, files } = state.currentData;
+        
+        // Apply Sort instantly before rendering!
+        folders = this.sortArray([...folders]);
+        files = this.sortArray([...files]);
+
         const isSelectionMode = state.selected.size > 0;
+        const isList = state.viewMode === 'list';
         
         const foldersHeader = document.getElementById('foldersHeader');
         const filesHeader = document.getElementById('filesHeader');
@@ -159,100 +207,131 @@ const ui = {
         if (folders.length === 0 && files.length === 0) {
             if (foldersHeader) foldersHeader.classList.add('hidden');
             if (filesHeader) filesHeader.classList.add('hidden');
+            this.filesGrid.className = '';
             this.filesGrid.innerHTML = `
                 <div class="col-span-full flex flex-col items-center justify-center py-24 text-md-text-muted">
                     <span class="material-symbols-rounded text-[64px] mb-4 opacity-50">folder_open</span>
                     <p class="text-[16px] font-medium">This folder is empty</p>
-                </div>
-            `;
+                </div>`;
             return;
         }
 
-        // --- GOOGLE DRIVE STYLE FOLDERS ---
+        // Apply View Layout CSS
+        this.foldersGrid.className = isList ? 'flex flex-col mb-8' : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-8';
+        this.filesGrid.className = isList ? 'flex flex-col pb-24' : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 pb-24';
+
         if (folders.length > 0) {
             if (foldersHeader) foldersHeader.classList.remove('hidden');
             folders.forEach(f => {
                 const safeId = String(f.id);
                 const isSel = state.selected.has(safeId);
                 const bgClass = isSel ? 'bg-[#004a77]/30 border-md-accent' : 'bg-md-bg border-transparent hover:border-[#444746]';
-                
-                // THE FIX: Switch to the collaborative folder icon dynamically if public
                 const isShared = f.is_public === 1;
                 const folderIconName = isShared ? 'folder_shared' : 'folder';
                 
                 const card = document.createElement('div');
-                card.className = `flex justify-between items-center ${bgClass} rounded-[16px] py-3.5 px-4 cursor-pointer transition border group`;
                 card.onclick = () => {
                     if (isSelectionMode) { this.toggleSelect(safeId, 'folder', f.name); } 
                     else { state.currentFolderId = f.id; state.path.push({ id: f.id, name: f.name }); this.loadDrive(true); }
                 };
                 
-                card.innerHTML = `
-                    <div class="flex items-center overflow-hidden w-full pointer-events-none">
-                        <div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}')">
-                            ${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[28px]">check_circle</span>` : `<span class="material-symbols-rounded filled text-md-text-muted text-[28px] transition hover:text-md-text">${folderIconName}</span>`}
+                if (isList) {
+                    card.className = `flex items-center justify-between p-3 border-b border-[#444746] ${bgClass} hover:bg-md-hover transition cursor-pointer group`;
+                    card.innerHTML = `
+                        <div class="flex items-center flex-1 overflow-hidden pointer-events-none">
+                            <div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}')">
+                                ${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px]">check_circle</span>` : `<span class="material-symbols-rounded filled text-md-text-muted text-[24px] group-hover:text-md-text transition">${folderIconName}</span>`}
+                            </div>
+                            <span class="text-[14px] font-medium text-md-text truncate">${f.name}</span>
                         </div>
-                        <span class="text-[15px] font-medium text-md-text truncate">${f.name}</span>
-                    </div>
-                    <div class="flex items-center shrink-0 ml-2">
-                        <button onclick="ui.openItemMenu(event, '${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}', ${isShared}, '${f.share_id}')" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[24px] transition cursor-pointer pointer-events-auto">more_vert</button>
-                    </div>
-                `;
+                        <div class="flex items-center shrink-0 w-32 hidden md:flex text-md-text-muted text-[13px]">${this.formatDate(f.date)}</div>
+                        <div class="flex items-center shrink-0 w-20 hidden md:flex text-md-text-muted text-[13px]">--</div>
+                        <div class="flex items-center shrink-0 ml-4 pointer-events-auto">
+                            <button onclick="ui.openItemMenu(event, '${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}', ${isShared}, '${f.share_id}')" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[20px] transition p-1">more_vert</button>
+                        </div>
+                    `;
+                } else {
+                    card.className = `flex justify-between items-center ${bgClass} rounded-[16px] py-3.5 px-4 cursor-pointer transition border group`;
+                    card.innerHTML = `
+                        <div class="flex items-center overflow-hidden w-full pointer-events-none">
+                            <div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}')">
+                                ${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[28px]">check_circle</span>` : `<span class="material-symbols-rounded filled text-md-text-muted text-[28px] transition hover:text-md-text">${folderIconName}</span>`}
+                            </div>
+                            <div class="flex flex-col overflow-hidden">
+                                <span class="text-[15px] font-medium text-md-text truncate">${f.name}</span>
+                                <span class="text-[11px] text-md-text-muted mt-0.5">${this.formatDate(f.date)}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center shrink-0 ml-2">
+                            <button onclick="ui.openItemMenu(event, '${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}', ${isShared}, '${f.share_id}')" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[24px] transition cursor-pointer pointer-events-auto">more_vert</button>
+                        </div>
+                    `;
+                }
                 this.foldersGrid.appendChild(card);
             });
-        } else { 
-            if (foldersHeader) foldersHeader.classList.add('hidden'); 
-        }
+        } else { if (foldersHeader) foldersHeader.classList.add('hidden'); }
 
-        // --- FILES ---
         if (files.length > 0) {
             if (filesHeader) filesHeader.classList.remove('hidden');
             files.forEach(file => {
                 const safeId = String(file.id);
                 const isSel = state.selected.has(safeId);
-                const checkVis = isSelectionMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100';
                 const bgClass = isSel ? 'bg-[#004a77]/30 border-md-accent' : 'bg-md-bg border-transparent hover:border-[#444746]';
                 
                 const fileType = this.getFileIcon(file.name);
                 const ext = file.name.split('.').pop().toLowerCase();
                 const isShared = file.is_public === 1;
-                const shareColor = isShared ? 'text-green-400' : 'text-md-text-muted';
-                const shareIcon = isShared ? 'link' : 'link_off';
                 
-                let thumbnailHTML = `<span class="material-symbols-rounded text-[48px] ${fileType.color}">${fileType.icon}</span>`;
-                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { thumbnailHTML = `<img src="/api/view/${file.id}" loading="lazy" class="w-full h-full object-cover rounded-[8px]">`; } 
-                else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { thumbnailHTML = `<video src="/api/view/${file.id}#t=0.1" preload="metadata" class="w-full h-full object-cover rounded-[8px]"></video><div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-[8px]"><span class="material-symbols-rounded text-white drop-shadow-lg text-[32px]">play_circle</span></div>`; }
-
                 const card = document.createElement('div');
-                card.className = `flex flex-col ${bgClass} rounded-[12px] overflow-hidden cursor-pointer transition border group`;
                 card.onclick = () => { if (isSelectionMode) this.toggleSelect(safeId, 'file', file.name); else this.openPreview(safeId, file.name); };
 
-                card.innerHTML = `
-                    <div class="h-32 bg-md-surface m-1.5 rounded-[8px] flex items-center justify-center relative pointer-events-none">
-                        ${thumbnailHTML}
-                        <div class="absolute top-2 left-2 pointer-events-auto cursor-pointer z-10" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}')">
-                            ${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px] bg-md-surface rounded-full shadow-sm">check_circle</span>` : `<span class="material-symbols-rounded text-md-text-muted text-[24px] ${checkVis} transition drop-shadow-md">radio_button_unchecked</span>`}
+                if (isList) {
+                    card.className = `flex items-center justify-between p-3 border-b border-[#444746] ${bgClass} hover:bg-md-hover transition cursor-pointer group`;
+                    card.innerHTML = `
+                        <div class="flex items-center flex-1 overflow-hidden pointer-events-none">
+                            <div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}')">
+                                ${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px]">check_circle</span>` : `<span class="material-symbols-rounded filled ${fileType.color} text-[24px]">${fileType.icon}</span>`}
+                            </div>
+                            <span class="text-[14px] font-medium text-md-text truncate">${file.name}</span>
                         </div>
-                    </div>
-                    <div class="px-3 pb-3 pt-1 flex justify-between items-center relative">
-                        <div class="flex items-center overflow-hidden pr-2 pointer-events-none">
-                            <span class="material-symbols-rounded filled ${fileType.color} text-[20px] mr-2 shrink-0">${fileType.icon}</span>
-                            <span class="text-[13px] font-medium text-md-text truncate" title="${file.name}">${file.name}</span>
+                        <div class="flex items-center shrink-0 w-32 hidden md:flex text-md-text-muted text-[13px]">${this.formatDate(file.date)}</div>
+                        <div class="flex items-center shrink-0 w-20 hidden md:flex text-md-text-muted text-[13px]">${this.formatSize(file.size)}</div>
+                        <div class="flex items-center shrink-0 ml-4 pointer-events-auto">
+                            <button onclick="ui.openItemMenu(event, '${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}', ${isShared}, '${file.share_id}')" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[20px] transition p-1">more_vert</button>
                         </div>
-                            <div class="flex items-center shrink-0 ml-2">
-        <button onclick="ui.openItemMenu(event, '${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}', ${isShared}, '${file.share_id}')" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[24px] transition cursor-pointer pointer-events-auto">more_vert</button>
-    </div>
+                    `;
+                } else {
+                    let thumbnailHTML = `<span class="material-symbols-rounded text-[48px] ${fileType.color}">${fileType.icon}</span>`;
+                    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { thumbnailHTML = `<img src="/api/view/${file.id}" loading="lazy" class="w-full h-full object-cover rounded-[8px]">`; } 
+                    else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { thumbnailHTML = `<video src="/api/view/${file.id}#t=0.1" preload="metadata" class="w-full h-full object-cover rounded-[8px]"></video><div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-[8px]"><span class="material-symbols-rounded text-white drop-shadow-lg text-[32px]">play_circle</span></div>`; }
 
-                    </div>
-                `;
+                    card.className = `flex flex-col ${bgClass} rounded-[12px] overflow-hidden cursor-pointer transition border group`;
+                    card.innerHTML = `
+                        <div class="h-32 bg-md-surface m-1.5 rounded-[8px] flex items-center justify-center relative pointer-events-none">
+                            ${thumbnailHTML}
+                            <div class="absolute top-2 left-2 pointer-events-auto cursor-pointer z-10" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}')">
+                                ${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px] bg-md-surface rounded-full shadow-sm">check_circle</span>` : `<span class="material-symbols-rounded text-md-text-muted text-[24px] ${isSelectionMode?'opacity-100':'opacity-0 group-hover:opacity-100'} transition drop-shadow-md">radio_button_unchecked</span>`}
+                            </div>
+                        </div>
+                        <div class="px-3 pb-3 pt-1 flex justify-between items-center relative">
+                            <div class="flex flex-col overflow-hidden pr-2 pointer-events-none w-full">
+                                <div class="flex items-center mb-0.5">
+                                    <span class="material-symbols-rounded filled ${fileType.color} text-[16px] mr-2 shrink-0">${fileType.icon}</span>
+                                    <span class="text-[13px] font-medium text-md-text truncate" title="${file.name}">${file.name}</span>
+                                </div>
+                                <span class="text-[11px] text-md-text-muted">${this.formatSize(file.size)} • ${this.formatDate(file.date)}</span>
+                            </div>
+                            <div class="flex items-center shrink-0 ml-2">
+                                <button onclick="ui.openItemMenu(event, '${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}', ${isShared}, '${file.share_id}')" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[24px] transition cursor-pointer pointer-events-auto">more_vert</button>
+                            </div>
+                        </div>
+                    `;
+                }
                 this.filesGrid.appendChild(card);
             });
-        } else { 
-            if (filesHeader) filesHeader.classList.add('hidden'); 
-        }
+        } else { if (filesHeader) filesHeader.classList.add('hidden'); }
     },
 
-    // --- CLIPBOARD ENGINE ---
     setClipboard(action, itemsArray) {
         state.clipboard.action = action;
         state.clipboard.items = itemsArray.map(item => ({ id: item.id, type: item.type })); 
@@ -316,32 +395,21 @@ const ui = {
         setTimeout(() => { modal.classList.add('hidden'); document.getElementById('previewContent').innerHTML = ''; }, 300);
     },
 
-    // --- UPLOAD PROGRESS & BATCH QUEUE ENGINE ---
     uploadQueue(files) {
         const panel = document.getElementById('uploadQueuePanel');
         const list = document.getElementById('uploadList');
         panel.classList.remove('hidden');
-        
         files.forEach(file => {
             const fileId = 'upload-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-            
             const item = document.createElement('div');
-            item.id = fileId;
-            item.className = "p-3 border-b border-[#444746] flex flex-col bg-md-surface";
+            item.id = fileId; item.className = "p-3 border-b border-[#444746] flex flex-col bg-md-surface";
             item.innerHTML = `
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-[13px] font-medium text-md-text truncate pr-2">${file.name}</span>
-                    <span class="material-symbols-rounded text-[18px] text-md-text-muted status-icon">pending</span>
-                </div>
-                <div class="w-full bg-[#444746] rounded-full h-1.5 overflow-hidden">
-                    <div class="bg-md-accent h-1.5 rounded-full progress-bar transition-all duration-200" style="width: 0%"></div>
-                </div>
+                <div class="flex justify-between items-center mb-2"><span class="text-[13px] font-medium text-md-text truncate pr-2">${file.name}</span><span class="material-symbols-rounded text-[18px] text-md-text-muted status-icon">pending</span></div>
+                <div class="w-full bg-[#444746] rounded-full h-1.5 overflow-hidden"><div class="bg-md-accent h-1.5 rounded-full progress-bar transition-all duration-200" style="width: 0%"></div></div>
             `;
             list.prepend(item); 
-            
             this.executeUpload(file, fileId);
         });
-        
         this.updateUploadTitle();
     },
 
@@ -368,24 +436,15 @@ const ui = {
         xhr.onload = () => {
             if (xhr.status === 200) {
                 progressBar.classList.replace('bg-md-accent', 'bg-green-400');
-                statusIcon.textContent = 'check_circle';
-                statusIcon.classList.add('text-green-400');
+                statusIcon.textContent = 'check_circle'; statusIcon.classList.add('text-green-400');
                 this.loadDrive(true);
             } else {
                 progressBar.classList.replace('bg-md-accent', 'bg-red-400');
-                statusIcon.textContent = 'error';
-                statusIcon.classList.add('text-red-400');
+                statusIcon.textContent = 'error'; statusIcon.classList.add('text-red-400');
             }
             this.updateUploadTitle();
         };
-
-        xhr.onerror = () => {
-            progressBar.classList.replace('bg-md-accent', 'bg-red-400');
-            statusIcon.textContent = 'error';
-            statusIcon.classList.add('text-red-400');
-            this.updateUploadTitle();
-        };
-
+        xhr.onerror = () => { progressBar.classList.replace('bg-md-accent', 'bg-red-400'); statusIcon.textContent = 'error'; statusIcon.classList.add('text-red-400'); this.updateUploadTitle(); };
         xhr.send(formData);
     },
 
@@ -394,19 +453,11 @@ const ui = {
         const total = list.children.length;
         const completed = list.querySelectorAll('.bg-green-400, .bg-red-400').length;
         const title = document.getElementById('uploadQueueTitle');
-        
-        if (completed < total) {
-            title.textContent = `Uploading ${total - completed} item(s)...`;
-        } else {
-            title.textContent = `${completed} upload(s) complete`;
-        }
+        if (completed < total) title.textContent = `Uploading ${total - completed} item(s)...`;
+        else title.textContent = `${completed} upload(s) complete`;
     },
 
-    closeUploadQueue(e) {
-        e.stopPropagation();
-        document.getElementById('uploadQueuePanel').classList.add('hidden');
-        document.getElementById('uploadList').innerHTML = ''; // Wipes memory
-    },
+    closeUploadQueue(e) { e.stopPropagation(); document.getElementById('uploadQueuePanel').classList.add('hidden'); document.getElementById('uploadList').innerHTML = ''; },
 
     async deleteFile(id) {
         if (!confirm("Delete this file permanently?")) return;

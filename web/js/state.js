@@ -6,9 +6,10 @@ const state = {
     currentData: { folders: [], files: [] }, 
     activeMenuTarget: null, 
     
-    // NEW: Virtual Clipboard Engine
-    clipboard: {
-        action: null, // 'copy' or 'cut'
-        items: []     // Array of { id, type, name }
-    }
+    clipboard: { action: null, items: [] },
+
+    // NEW: View & Sort Engine State
+    viewMode: localStorage.getItem('rcloud_view') || 'grid', // 'grid' or 'list'
+    sortBy: localStorage.getItem('rcloud_sort') || 'name',   // 'name', 'date', 'size'
+    sortOrder: localStorage.getItem('rcloud_sortOrder') || 'asc' // 'asc' or 'desc'
 };

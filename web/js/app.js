@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('loginBtn').addEventListener('click', () => auth.handleLogin());
     document.getElementById('registerBtn').addEventListener('click', () => auth.handleRegister());
-
     document.getElementById('profileBtn').addEventListener('click', () => window.location.href = '/settings.html');
 
     const fileInput = document.getElementById('hiddenFileInput');
@@ -11,21 +10,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const newMenu = document.getElementById('newMenu');
     const itemMenu = document.getElementById('itemMenu');
     const bulkMenu = document.getElementById('bulkMenu');
+    const sortMenu = document.getElementById('sortMenu');
     const bulkMenuBtn = document.getElementById('bulkMenuBtn');
+    const sortMenuTrigger = document.getElementById('sortMenuTrigger');
 
     function toggleMenu(e) {
         e.stopPropagation();
         if (itemMenu) itemMenu.classList.add('hidden');
         if (bulkMenu) bulkMenu.classList.add('hidden');
+        if (sortMenu) sortMenu.classList.add('hidden');
 
         if (newMenu.classList.contains('hidden')) {
             const rect = e.currentTarget.getBoundingClientRect();
             if (e.currentTarget.id === 'mobileNewBtn') {
-                newMenu.style.top = `${rect.top - 110}px`;
-                newMenu.style.left = `${rect.left - 130}px`;
+                newMenu.style.top = `${rect.top - 110}px`; newMenu.style.left = `${rect.left - 130}px`;
             } else {
-                newMenu.style.top = `${rect.bottom + 10}px`;
-                newMenu.style.left = `${rect.left}px`;
+                newMenu.style.top = `${rect.bottom + 10}px`; newMenu.style.left = `${rect.left}px`;
             }
             newMenu.classList.remove('hidden');
         } else { newMenu.classList.add('hidden'); }
@@ -39,17 +39,42 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             if (newMenu) newMenu.classList.add('hidden');
             if (itemMenu) itemMenu.classList.add('hidden');
+            if (sortMenu) sortMenu.classList.add('hidden');
             bulkMenu.classList.toggle('hidden');
         });
     }
+
+    if (sortMenuTrigger) {
+        sortMenuTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (newMenu) newMenu.classList.add('hidden');
+            if (itemMenu) itemMenu.classList.add('hidden');
+            if (bulkMenu) bulkMenu.classList.add('hidden');
+            
+            // If already sorting by this, flip the order!
+            if (!sortMenu.classList.contains('hidden')) {
+                ui.setSort(state.sortBy, state.sortOrder === 'asc' ? 'desc' : 'asc');
+            }
+            sortMenu.classList.toggle('hidden');
+        });
+    }
+
+    // NEW: View Toggle Logic
+    document.getElementById('viewToggleBtn').addEventListener('click', () => {
+        const newMode = state.viewMode === 'grid' ? 'list' : 'grid';
+        state.viewMode = newMode;
+        localStorage.setItem('rcloud_view', newMode);
+        document.getElementById('viewToggleIcon').textContent = newMode === 'grid' ? 'view_list' : 'grid_view';
+        ui.renderContent();
+    });
 
     document.addEventListener('click', () => {
         if (newMenu) newMenu.classList.add('hidden');
         if (itemMenu) itemMenu.classList.add('hidden');
         if (bulkMenu) bulkMenu.classList.add('hidden');
+        if (sortMenu) sortMenu.classList.add('hidden');
     });
 
-    // --- SEARCH BAR ENHANCEMENTS ---
     const searchInput = document.getElementById('searchInput');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
     let searchTimeout;
@@ -58,11 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             const query = e.target.value.trim();
-            
-            // Toggle the "X" button
             if (query.length > 0) clearSearchBtn.classList.remove('hidden');
             else clearSearchBtn.classList.add('hidden');
-
             searchTimeout = setTimeout(() => {
                 if (query.length > 0) ui.performSearch(query);
                 else ui.loadDrive(true);
@@ -72,9 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (clearSearchBtn) {
         clearSearchBtn.addEventListener('click', () => {
-            searchInput.value = '';
-            clearSearchBtn.classList.add('hidden');
-            ui.loadDrive(true); // Reset the drive instantly
+            searchInput.value = ''; clearSearchBtn.classList.add('hidden'); ui.loadDrive(true);
         });
     }
 
@@ -92,11 +112,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            ui.uploadQueue(Array.from(e.target.files));
-            fileInput.value = ''; 
-            newMenu.classList.add('hidden');
-        }
+        if (e.target.files.length > 0) { ui.uploadQueue(Array.from(e.target.files)); fileInput.value = ''; newMenu.classList.add('hidden'); }
+    });
+
+    // NEW: ZIP Download Action
+    document.getElementById('bulkZipBtn').addEventListener('click', async () => {
+        if (state.selected.size === 0) return;
+        ui.showToast("Compressing items...", "archive", "text-md-accent");
+        const items = Array.from(state.selected.values());
+        const success = await api.downloadZip(items);
+        if (success) ui.showToast("Download started!", "check_circle", "text-green-400");
+        else ui.showToast("Compression failed", "error", "text-red-400");
+        ui.clearSelection();
     });
 
     document.getElementById('bulkMakePublicBtn').addEventListener('click', () => { ui.bulkToggleShare(true); bulkMenu.classList.add('hidden'); });
@@ -113,10 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target) {
             const link = `${window.location.origin}/share/${target.type}/${target.shareId}`;
             try {
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(link);
-                    ui.showToast("Link copied to clipboard!", "content_copy", "text-green-400");
-                } else { throw new Error("Clipboard API blocked"); }
+                if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(link); ui.showToast("Link copied to clipboard!", "content_copy", "text-green-400"); } 
+                else { throw new Error(); }
             } catch (err) { prompt("Your public link is ready. Copy it below:", link); }
         }
         itemMenu.classList.add('hidden');
@@ -143,5 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         itemMenu.classList.add('hidden');
     });
 
+    // Boot UI
+    document.getElementById('viewToggleIcon').textContent = state.viewMode === 'grid' ? 'view_list' : 'grid_view';
     ui.loadDrive();
 });
