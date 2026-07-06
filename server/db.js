@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const path = require('path');
+const crypto = require('crypto');
 
 const DB_PATH = path.join(__dirname, 'rcloud_v2.db');
 
@@ -23,6 +24,8 @@ async function initDB() {
             user_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             parent_id INTEGER DEFAULT NULL,
+            is_public INTEGER DEFAULT 0,
+            share_id TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
             FOREIGN KEY (parent_id) REFERENCES folders (id) ON DELETE CASCADE
@@ -38,21 +41,25 @@ async function initDB() {
             stored_name TEXT UNIQUE NOT NULL,
             size INTEGER NOT NULL,
             is_public INTEGER DEFAULT 0, 
+            share_id TEXT,
             upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
             FOREIGN KEY (folder_id) REFERENCES folders (id) ON DELETE CASCADE
         )
     `);
 
-    // AUTO-MIGRATION: Safely add the column to an existing database if it's missing!
-    try {
-        await db.exec(`ALTER TABLE files ADD COLUMN is_public INTEGER DEFAULT 0`);
-        console.log("🛠️ Database migrated: Added 'is_public' column.");
-    } catch (err) {
-        // If it throws an error, the column already exists. Safe to ignore!
-    }
+    // AUTO-MIGRATIONS: Add the secure share_id columns if missing
+    try { await db.exec(`ALTER TABLE files ADD COLUMN share_id TEXT`); } catch (err) {}
+    try { await db.exec(`ALTER TABLE folders ADD COLUMN share_id TEXT`); } catch (err) {}
 
-    console.log("✅ Database tables verified.");
+    // AUTO-POPULATE: Generate randomized strings for any old files
+    const filesMissing = await db.all(`SELECT id FROM files WHERE share_id IS NULL`);
+    for (let f of filesMissing) await db.run(`UPDATE files SET share_id = ? WHERE id = ?`, [crypto.randomBytes(8).toString('hex'), f.id]);
+
+    const foldersMissing = await db.all(`SELECT id FROM folders WHERE share_id IS NULL`);
+    for (let f of foldersMissing) await db.run(`UPDATE folders SET share_id = ? WHERE id = ?`, [crypto.randomBytes(8).toString('hex'), f.id]);
+
+    console.log("✅ Database tables & security strings verified.");
     return db;
 }
 

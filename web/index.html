@@ -14,21 +14,16 @@
             theme: {
                 extend: {
                     colors: {
-                        'md-bg': '#131314',
-                        'md-surface': '#1e1f20',
-                        'md-hover': '#282a2c',
-                        'md-text': '#e3e3e3',
-                        'md-text-muted': '#c4c7c5',
-                        'md-accent': '#a8c7fa',
-                        'md-active': '#004a77',
-                        'md-fab': '#c2e7ff',
-                        'md-fab-text': '#001d35'
+                        'md-bg': 'var(--md-bg, #131314)', 'md-surface': 'var(--md-surface, #1e1f20)', 'md-hover': 'var(--md-hover, #282a2c)',
+                        'md-text': 'var(--md-text, #e3e3e3)', 'md-text-muted': 'var(--md-text-muted, #c4c7c5)', 'md-accent': 'var(--md-accent, #a8c7fa)',
+                        'md-active': 'var(--md-active, #004a77)', 'md-fab': 'var(--md-fab, #c2e7ff)', 'md-fab-text': 'var(--md-fab-text, #001d35)'
                     },
                     fontFamily: { sans: ['Roboto', 'sans-serif'] }
                 }
             }
         }
     </script>
+    <script src="/js/theme.js"></script>
     <style>
         body { letter-spacing: 0.01em; }
         .material-symbols-rounded { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
@@ -36,10 +31,9 @@
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #444746; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #c4c7c5; }
     </style>
 </head>
-<body class="bg-md-bg text-md-text font-sans h-screen overflow-hidden flex flex-col selection:bg-md-active selection:text-md-accent">
+<body class="bg-md-bg text-md-text font-sans h-screen overflow-hidden flex flex-col selection:bg-md-active selection:text-md-accent relative">
 
     <div id="authView" class="fixed inset-0 z-50 bg-md-bg flex items-center justify-center p-4 transition-opacity duration-300">
         <div class="bg-md-surface p-10 rounded-[28px] w-full max-w-[400px]">
@@ -53,7 +47,6 @@
                 <input type="text" id="username" class="w-full bg-md-bg border border-[#444746] rounded-[4px] py-4 px-4 text-md-text focus:outline-none focus:border-md-accent focus:border-2 transition-all" placeholder="Username">
                 <input type="password" id="password" class="w-full bg-md-bg border border-[#444746] rounded-[4px] py-4 px-4 text-md-text focus:outline-none focus:border-md-accent focus:border-2 transition-all" placeholder="Password">
                 <p id="authStatus" class="text-sm font-medium text-red-400 h-4"></p>
-                
                 <div class="flex justify-between items-center pt-4">
                     <button id="registerBtn" class="text-md-accent font-medium hover:bg-md-hover py-2 px-4 rounded-full transition">Create account</button>
                     <button id="loginBtn" class="bg-md-accent text-md-fab-text font-medium py-2 px-6 rounded-full hover:bg-md-fab transition">Next</button>
@@ -63,33 +56,43 @@
     </div>
 
     <div id="dashboardView" class="hidden h-full flex flex-col opacity-0 transition-opacity duration-300">
-        <header class="h-[64px] flex items-center justify-between px-2 md:px-4 shrink-0">
+        <header class="h-[64px] flex items-center justify-between px-2 md:px-4 shrink-0 relative">
             <div class="flex items-center space-x-2 w-auto md:w-64">
-                <button class="p-2 hover:bg-md-hover rounded-full transition text-md-text md:hidden flex items-center">
-                    <span class="material-symbols-rounded">menu</span>
-                </button>
-                <div class="flex items-center space-x-2 pl-2">
-                    <span class="material-symbols-rounded filled text-[32px] md:text-[40px] text-md-accent">cloud</span>
+                <button class="p-2 hover:bg-md-hover rounded-full transition text-md-text md:hidden flex items-center"><span class="material-symbols-rounded">menu</span></button>
+                <div class="flex items-center space-x-2 pl-2 cursor-pointer" onclick="window.location.reload()">
                     <span class="text-[22px] font-medium text-md-text hidden sm:block">R Cloud</span>
                 </div>
             </div>
             
             <div class="flex-1 max-w-[720px] bg-md-hover rounded-full flex items-center px-2 py-1 h-[48px] focus-within:bg-md-surface focus-within:shadow-md transition mx-2">
-                <button class="p-2 rounded-full text-md-text-muted hover:bg-[#444746] transition flex items-center">
-                    <span class="material-symbols-rounded">search</span>
-                </button>
-                <input type="text" placeholder="Search in Drive" class="bg-transparent border-none outline-none w-full text-md-text placeholder-md-text-muted px-2 h-full text-[16px]">
+                <button class="p-2 rounded-full text-md-text-muted hover:bg-[#444746] transition flex items-center"><span class="material-symbols-rounded">search</span></button>
+                <input type="text" id="searchInput" placeholder="Search in Drive" class="bg-transparent border-none outline-none w-full text-md-text placeholder-md-text-muted px-2 h-full text-[16px]">
+                <button id="clearSearchBtn" class="p-2 rounded-full text-md-text-muted hover:bg-[#444746] transition flex items-center hidden"><span class="material-symbols-rounded">close</span></button>
             </div>
 
             <div class="flex items-center space-x-1 pr-2">
-                <button id="logoutBtn" class="p-2 hover:bg-md-hover rounded-full transition text-md-text-muted flex items-center" title="Logout">
-                    <span class="material-symbols-rounded">logout</span>
+                <button id="profileBtn" class="w-9 h-9 ml-2 rounded-full bg-[#004a77] flex items-center justify-center hover:ring-2 ring-md-accent transition">
+                    <span id="profileInitial" class="text-md-accent font-medium text-sm">U</span>
                 </button>
-                <div class="relative ml-2">
-                    <button id="profileBtn" class="w-9 h-9 rounded-full bg-[#004a77] flex items-center justify-center hover:ring-2 ring-md-accent transition">
-                        <span id="profileInitial" class="text-md-accent font-medium text-sm">U</span>
-                    </button>
+            </div>
+            
+            <div id="selectionToolbar" class="hidden absolute inset-0 bg-[#004a77] z-[55] flex items-center justify-between px-4 transition-all">
+                <div class="flex items-center space-x-2">
+                    <button onclick="ui.clearSelection()" class="p-2 hover:bg-white/10 rounded-full transition text-white flex items-center"><span class="material-symbols-rounded">close</span></button>
+                    <span id="selectionCount" class="text-[18px] font-medium text-white ml-2">1 selected</span>
                 </div>
+                <div class="flex items-center space-x-1">
+                    <button onclick="ui.bulkDelete()" class="p-2 hover:bg-white/10 rounded-full transition text-white flex items-center" title="Delete selected"><span class="material-symbols-rounded">delete</span></button>
+                    <button id="bulkMenuBtn" class="p-2 hover:bg-white/10 rounded-full transition text-white flex items-center"><span class="material-symbols-rounded">more_vert</span></button>
+                </div>
+            </div>
+            
+            <div id="bulkMenu" class="hidden absolute top-14 right-4 bg-md-surface border border-[#444746] rounded-[12px] shadow-2xl py-2 w-48 z-[60]">
+                <button id="bulkMakePublicBtn" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition"><span class="material-symbols-rounded mr-3 text-md-text-muted">public</span> Make Public</button>
+                <button id="bulkMakePrivateBtn" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition"><span class="material-symbols-rounded mr-3 text-md-text-muted">lock</span> Make Private</button>
+                <div class="my-1 border-t border-[#444746]"></div>
+                <button id="bulkCutBtn" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition"><span class="material-symbols-rounded mr-3 text-md-text-muted">content_cut</span> Cut</button>
+                <button id="bulkCopyBtn" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition"><span class="material-symbols-rounded mr-3 text-md-text-muted">content_copy</span> Copy</button>
             </div>
         </header>
 
@@ -97,8 +100,7 @@
             <aside class="w-64 shrink-0 flex-col hidden md:flex">
                 <div class="px-4 py-3">
                     <button id="newBtn" class="bg-md-surface hover:bg-md-hover text-md-text font-medium rounded-[16px] py-4 px-5 shadow-[0_1px_3px_rgba(0,0,0,0.3)] flex items-center transition w-[140px]">
-                        <span class="material-symbols-rounded mr-3 text-[24px]">add</span>
-                        <span class="text-[14px]">New</span>
+                        <span class="material-symbols-rounded mr-3 text-[24px]">add</span> <span class="text-[14px]">New</span>
                     </button>
                 </div>
                 <nav class="flex-1 px-3 space-y-1">
@@ -106,28 +108,87 @@
                         <span class="material-symbols-rounded filled mr-3">hard_drive</span> My Drive
                     </button>
                 </nav>
-                <div id="uploadStatus" class="p-4 text-sm text-md-accent font-medium text-center opacity-0 transition-opacity"></div>
             </aside>
 
             <main class="flex-1 bg-md-surface md:rounded-[24px] md:m-2 md:mt-0 md:mr-4 flex flex-col overflow-hidden relative">
-                <div class="shrink-0 px-6 py-4 flex items-center text-[18px] text-md-text border-b border-md-bg/30">
+                <div class="shrink-0 px-6 py-4 flex items-center text-[18px] text-md-text border-b border-md-bg/30" id="breadcrumbContainer">
                     <button class="hover:bg-md-hover px-3 py-1.5 -ml-3 rounded-[8px] transition flex items-center">
                         <span class="font-medium">My Drive</span>
-                        <span class="material-symbols-rounded ml-1 text-md-text-muted">arrow_drop_down</span>
                     </button>
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-6">
-                    <h3 class="text-[14px] font-medium text-md-text mb-3">Files</h3>
-                    <div id="filesGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 pb-12">
-                        </div>
+                    <h3 class="text-[14px] font-medium text-md-text mb-3" id="foldersHeader">Folders</h3>
+                    <div id="foldersGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-8"></div>
+                    
+                    <h3 class="text-[14px] font-medium text-md-text mb-3" id="filesHeader">Files</h3>
+                    <div id="filesGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 pb-24"></div>
                 </div>
             </main>
         </div>
     </div>
     
-    <input type="file" id="hiddenFileInput" class="hidden">
+    <button id="mobileNewBtn" class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-md-fab text-md-fab-text rounded-[16px] shadow-lg flex items-center justify-center hover:bg-[#b0d8f0] transition z-40">
+        <span class="material-symbols-rounded text-[32px]">add</span>
+    </button>
 
+    <div id="newMenu" class="hidden absolute bg-md-surface border border-[#444746] rounded-[12px] shadow-2xl py-2 w-48 z-50">
+        <button id="menuFolderBtn" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition">
+            <span class="material-symbols-rounded mr-3 text-md-text-muted">create_new_folder</span> New folder
+        </button>
+        <button id="menuUploadBtn" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition">
+            <span class="material-symbols-rounded mr-3 text-md-text-muted">upload_file</span> File upload
+        </button>
+    </div>
+
+    <div id="uploadQueuePanel" class="fixed bottom-6 right-6 w-80 bg-md-surface border border-[#444746] rounded-[16px] shadow-2xl flex flex-col overflow-hidden z-[70] hidden transition-all duration-300">
+        <div class="bg-md-hover px-4 py-3 flex justify-between items-center border-b border-[#444746] cursor-pointer" onclick="document.getElementById('uploadList').classList.toggle('hidden')">
+            <span id="uploadQueueTitle" class="font-medium text-sm text-md-text">Preparing upload...</span>
+            <button onclick="ui.closeUploadQueue(event)" class="text-md-text-muted hover:text-md-text transition flex items-center justify-center">
+                <span class="material-symbols-rounded text-[20px]">close</span>
+            </button>
+        </div>
+        <div id="uploadList" class="max-h-64 overflow-y-auto bg-md-bg flex flex-col"></div>
+    </div>
+
+    <div id="toast" class="fixed bottom-24 md:bottom-10 left-1/2 transform -translate-x-1/2 bg-md-hover text-md-text px-6 py-3 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none z-50 flex items-center border border-[#444746]">
+        <span id="toastIcon" class="material-symbols-rounded mr-3 text-md-accent">info</span>
+        <span id="toastMessage" class="text-sm font-medium"></span>
+    </div>
+
+    <div id="previewModal" class="hidden fixed inset-0 z-[60] bg-black/95 backdrop-blur-sm flex flex-col transition-opacity duration-300 opacity-0">
+        <div class="flex items-center justify-between p-4 text-[#e3e3e3] bg-gradient-to-b from-black/80 to-transparent absolute top-0 w-full z-10">
+            <div class="flex items-center space-x-4">
+                <button onclick="ui.closePreview()" class="p-2 rounded-full hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">arrow_back</span></button>
+                <span id="previewFilename" class="font-medium text-[16px] truncate max-w-[200px] md:max-w-md"></span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button id="downloadPreviewBtn" class="p-2 rounded-full hover:bg-white/10 transition flex items-center justify-center" title="Download"><span class="material-symbols-rounded">download</span></button>
+                <button class="p-2 rounded-full hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">more_vert</span></button>
+            </div>
+        </div>
+        <div id="previewContent" class="flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0"></div>
+    </div>
+
+    <div id="itemMenu" class="hidden absolute bg-md-surface border border-[#444746] rounded-[12px] shadow-2xl py-2 w-48 z-50 transition-opacity">
+        <button id="menuItemTogglePublic" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition"><span class="material-symbols-rounded mr-3 text-md-text-muted" id="menuItemTogglePublicIcon">public</span> <span id="menuItemTogglePublicText">Make Public</span></button>
+        <button id="menuItemCopyLink" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition"><span class="material-symbols-rounded mr-3 text-md-text-muted">link</span> Copy Link</button>
+        <div class="my-1 border-t border-[#444746]"></div>
+        <button id="menuItemCut" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition"><span class="material-symbols-rounded mr-3 text-md-text-muted">content_cut</span> Cut</button>
+        <button id="menuItemCopy" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center transition"><span class="material-symbols-rounded mr-3 text-md-text-muted">content_copy</span> Copy</button>
+        <div id="menuItemDivider" class="my-1 border-t border-[#444746]"></div>
+        <button id="menuItemDelete" class="w-full text-left px-4 py-3 text-[14px] text-red-400 hover:bg-md-hover flex items-center transition"><span class="material-symbols-rounded mr-3 text-red-400">delete</span> Delete</button>
+    </div>
+    
+    <div id="clipboardBar" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-md-hover border border-[#444746] pl-6 pr-2 py-2 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-10 pointer-events-none z-[55] hidden items-center">
+        <span id="clipboardText" class="text-sm font-medium text-md-text mr-4">1 item copied</span>
+        <button onclick="ui.pasteClipboard()" class="bg-md-accent text-[#001d35] px-4 py-1.5 rounded-full text-sm font-medium hover:bg-[#c2e7ff] transition mr-2 pointer-events-auto">Paste here</button>
+        <button onclick="ui.clearClipboard()" class="w-8 h-8 rounded-full hover:bg-white/10 transition text-md-text-muted flex items-center justify-center pointer-events-auto"><span class="material-symbols-rounded text-[20px]">close</span></button>
+    </div>
+
+    <input type="file" id="hiddenFileInput" class="hidden" multiple>
+
+    <script src="/js/state.js"></script>
     <script src="/js/api.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/ui.js"></script>

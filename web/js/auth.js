@@ -3,15 +3,14 @@ const auth = {
     dashView: document.getElementById('dashboardView'),
     statusEl: document.getElementById('authStatus'),
 
-    showDashboard(username = "U") {
+    showDashboard(username = "U", fetchFiles = true) {
         document.getElementById('profileInitial').textContent = username.charAt(0).toUpperCase();
         this.view.classList.add('hidden');
         this.dashView.classList.remove('hidden');
         
-        // Small delay triggers the CSS opacity fade-in
         setTimeout(() => this.dashView.classList.remove('opacity-0'), 50);
         
-        ui.loadDrive();
+        if (fetchFiles) ui.loadDrive();
     },
 
     showAuth() {
