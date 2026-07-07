@@ -50,16 +50,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newMenu) newMenu.classList.add('hidden');
             if (itemMenu) itemMenu.classList.add('hidden');
             if (bulkMenu) bulkMenu.classList.add('hidden');
-            
-            // If already sorting by this, flip the order!
-            if (!sortMenu.classList.contains('hidden')) {
-                ui.setSort(state.sortBy, state.sortOrder === 'asc' ? 'desc' : 'asc');
-            }
+            if (!sortMenu.classList.contains('hidden')) { ui.setSort(state.sortBy, state.sortOrder === 'asc' ? 'desc' : 'asc'); }
             sortMenu.classList.toggle('hidden');
         });
     }
 
-    // NEW: View Toggle Logic
     document.getElementById('viewToggleBtn').addEventListener('click', () => {
         const newMode = state.viewMode === 'grid' ? 'list' : 'grid';
         state.viewMode = newMode;
@@ -115,7 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.files.length > 0) { ui.uploadQueue(Array.from(e.target.files)); fileInput.value = ''; newMenu.classList.add('hidden'); }
     });
 
-    // NEW: ZIP Download Action
     document.getElementById('bulkZipBtn').addEventListener('click', async () => {
         if (state.selected.size === 0) return;
         ui.showToast("Compressing items...", "archive", "text-md-accent");
@@ -147,28 +141,33 @@ document.addEventListener('DOMContentLoaded', () => {
         itemMenu.classList.add('hidden');
     });
 
-    document.getElementById('menuItemDelete').addEventListener('click', () => {
-        const target = state.activeMenuTarget;
-        if (target) {
-            if (target.type === 'folder') ui.deleteFolder(target.id, target.name);
-            else ui.deleteFile(target.id);
+    // NEW MENU ACTIONS
+    document.getElementById('menuItemToggleStar').addEventListener('click', async () => {
+        const t = state.activeMenuTarget;
+        if (t) { await api.toggleStar(t.id, t.type, !t.isStarred); ui.loadDrive(true); }
+        itemMenu.classList.add('hidden');
+    });
+
+    document.getElementById('menuItemToggleTrash').addEventListener('click', async () => {
+        const t = state.activeMenuTarget;
+        if (t) { await api.toggleTrash(t.id, t.type, !t.isTrash); ui.loadDrive(true); }
+        itemMenu.classList.add('hidden');
+    });
+
+    document.getElementById('menuItemPermanentDelete').addEventListener('click', async () => {
+        const t = state.activeMenuTarget;
+        if (t && confirm("Delete forever?")) { 
+            if (t.type === 'folder') await api.deleteFolder(t.id); else await api.deleteFile(t.id); 
+            ui.loadDrive(true); 
         }
         itemMenu.classList.add('hidden');
     });
 
     document.getElementById('bulkCutBtn').addEventListener('click', () => { ui.setClipboard('cut', Array.from(state.selected.values())); bulkMenu.classList.add('hidden'); });
     document.getElementById('bulkCopyBtn').addEventListener('click', () => { ui.setClipboard('copy', Array.from(state.selected.values())); bulkMenu.classList.add('hidden'); });
-    
-    document.getElementById('menuItemCut').addEventListener('click', () => {
-        if (state.activeMenuTarget) ui.setClipboard('cut', [state.activeMenuTarget]);
-        itemMenu.classList.add('hidden');
-    });
-    document.getElementById('menuItemCopy').addEventListener('click', () => {
-        if (state.activeMenuTarget) ui.setClipboard('copy', [state.activeMenuTarget]);
-        itemMenu.classList.add('hidden');
-    });
+    document.getElementById('menuItemCut').addEventListener('click', () => { if (state.activeMenuTarget) ui.setClipboard('cut', [state.activeMenuTarget]); itemMenu.classList.add('hidden'); });
+    document.getElementById('menuItemCopy').addEventListener('click', () => { if (state.activeMenuTarget) ui.setClipboard('copy', [state.activeMenuTarget]); itemMenu.classList.add('hidden'); });
 
-    // Boot UI
     document.getElementById('viewToggleIcon').textContent = state.viewMode === 'grid' ? 'view_list' : 'grid_view';
     ui.loadDrive();
 });

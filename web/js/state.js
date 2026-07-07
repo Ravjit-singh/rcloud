@@ -8,8 +8,9 @@ const state = {
     
     clipboard: { action: null, items: [] },
 
-    // NEW: View & Sort Engine State
-    viewMode: localStorage.getItem('rcloud_view') || 'grid', // 'grid' or 'list'
-    sortBy: localStorage.getItem('rcloud_sort') || 'name',   // 'name', 'date', 'size'
-    sortOrder: localStorage.getItem('rcloud_sortOrder') || 'asc' // 'asc' or 'desc'
+    currentView: 'home', // 'home', 'starred', 'shared', 'trash'
+    
+    viewMode: localStorage.getItem('rcloud_view') || 'grid',
+    sortBy: localStorage.getItem('rcloud_sort') || 'name',
+    sortOrder: localStorage.getItem('rcloud_sortOrder') || 'asc'
 };
