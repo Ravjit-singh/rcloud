@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0" />
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <script>
         tailwind.config = {
             theme: {
@@ -25,12 +24,13 @@
     </script>
     <script src="/js/theme.js"></script>
     <style>
-        body { letter-spacing: 0.01em; }
+        body { letter-spacing: 0.01em; overscroll-behavior-y: none; }
         .material-symbols-rounded { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .material-symbols-rounded.filled { font-variation-settings: 'FILL' 1; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #444746; border-radius: 10px; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
 <body class="bg-md-bg text-md-text font-sans h-screen overflow-hidden flex flex-col selection:bg-md-active selection:text-md-accent relative">
@@ -47,7 +47,7 @@
         </div>
     </div>
 
-    <div id="dashboardView" class="hidden h-full flex flex-col opacity-0 transition-opacity duration-300">
+    <div id="dashboardView" class="hidden h-full flex flex-col opacity-0 transition-opacity duration-300 pb-16 md:pb-0">
         <header class="h-[64px] flex items-center justify-between px-2 md:px-4 shrink-0 relative">
             <div class="flex items-center space-x-2 w-auto md:w-64">
                 <button class="p-2 hover:bg-md-hover rounded-full transition text-md-text md:hidden flex items-center"><span class="material-symbols-rounded">menu</span></button>
@@ -86,13 +86,17 @@
         <div class="flex-1 flex overflow-hidden">
             <aside class="w-64 shrink-0 flex-col hidden md:flex">
                 <div class="px-4 py-3"><button id="newBtn" class="bg-md-surface hover:bg-md-hover text-md-text font-medium rounded-[16px] py-4 px-5 shadow-[0_1px_3px_rgba(0,0,0,0.3)] flex items-center transition w-[140px]"><span class="material-symbols-rounded mr-3 text-[24px]">add</span> <span class="text-[14px]">New</span></button></div>
-                <nav class="flex-1 px-3 space-y-1"><button class="w-full flex items-center bg-md-active text-md-accent px-4 py-2.5 rounded-full font-medium text-[14px] transition"><span class="material-symbols-rounded filled mr-3">hard_drive</span> My Drive</button></nav>
+                <nav class="flex-1 px-3 space-y-1">
+                    <button id="nav-home" onclick="ui.switchView('home')" class="sidebar-nav-btn w-full flex items-center bg-md-active text-md-accent px-4 py-2.5 rounded-full font-medium text-[14px] transition"><span class="material-symbols-rounded filled mr-3">hard_drive</span> My Drive</button>
+                    <button id="nav-starred" onclick="ui.switchView('starred')" class="sidebar-nav-btn w-full flex items-center text-md-text hover:bg-md-hover px-4 py-2.5 rounded-full font-medium text-[14px] transition"><span class="material-symbols-rounded mr-3">star</span> Starred</button>
+                    <button id="nav-shared" onclick="ui.switchView('shared')" class="sidebar-nav-btn w-full flex items-center text-md-text hover:bg-md-hover px-4 py-2.5 rounded-full font-medium text-[14px] transition"><span class="material-symbols-rounded mr-3">group</span> Shared Links</button>
+                    <button id="nav-trash" onclick="ui.switchView('trash')" class="sidebar-nav-btn w-full flex items-center text-md-text hover:bg-md-hover px-4 py-2.5 rounded-full font-medium text-[14px] transition"><span class="material-symbols-rounded mr-3">delete</span> Trash</button>
+                </nav>
             </aside>
 
             <main class="flex-1 bg-md-surface md:rounded-[24px] md:m-2 md:mt-0 md:mr-4 flex flex-col overflow-hidden relative">
-                
                 <div class="shrink-0 px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between border-b border-md-bg/30">
-                    <div class="flex items-center text-[18px] text-md-text mb-3 md:mb-0" id="breadcrumbContainer"><button class="hover:bg-md-hover px-3 py-1.5 -ml-3 rounded-[8px] transition flex items-center"><span class="font-medium">My Drive</span></button></div>
+                    <div class="flex items-center text-[18px] text-md-text mb-3 md:mb-0 w-full md:w-auto" id="breadcrumbContainer"><button class="hover:bg-md-hover px-3 py-1.5 -ml-3 rounded-[8px] transition flex items-center"><span class="font-medium">My Drive</span></button></div>
                     
                     <div class="flex items-center space-x-2">
                         <div class="relative">
@@ -115,22 +119,36 @@
                 <div class="flex-1 overflow-y-auto p-4 md:p-6" id="driveContainer">
                     <h3 class="text-[14px] font-medium text-md-text mb-3" id="foldersHeader">Folders</h3>
                     <div id="foldersGrid" class="mb-8"></div>
-                    
                     <h3 class="text-[14px] font-medium text-md-text mb-3" id="filesHeader">Files</h3>
                     <div id="filesGrid" class="pb-24"></div>
                 </div>
             </main>
         </div>
+        
+        <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-md-surface border-t border-[#444746] flex justify-around items-center h-16 z-40 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.3)]">
+            <button id="bottom-nav-home" onclick="ui.switchView('home')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-accent transition">
+                <span class="material-symbols-rounded text-[24px]">home</span><span class="text-[10px] font-medium mt-1">Home</span>
+            </button>
+            <button id="bottom-nav-starred" onclick="ui.switchView('starred')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-text-muted transition">
+                <span class="material-symbols-rounded text-[24px]">star</span><span class="text-[10px] font-medium mt-1">Starred</span>
+            </button>
+            <button id="bottom-nav-shared" onclick="ui.switchView('shared')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-text-muted transition">
+                <span class="material-symbols-rounded text-[24px]">group</span><span class="text-[10px] font-medium mt-1">Shared</span>
+            </button>
+            <button id="bottom-nav-trash" onclick="ui.switchView('trash')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-text-muted transition">
+                <span class="material-symbols-rounded text-[24px]">delete</span><span class="text-[10px] font-medium mt-1">Trash</span>
+            </button>
+        </nav>
     </div>
     
-    <button id="mobileNewBtn" class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-md-fab text-md-fab-text rounded-[16px] shadow-lg flex items-center justify-center hover:bg-[#b0d8f0] transition z-40"><span class="material-symbols-rounded text-[32px]">add</span></button>
+    <button id="mobileNewBtn" class="md:hidden fixed bottom-24 right-6 w-14 h-14 bg-md-fab text-md-fab-text rounded-[16px] shadow-lg flex items-center justify-center hover:bg-[#b0d8f0] transition z-30"><span class="material-symbols-rounded text-[32px]">add</span></button>
 
     <div id="newMenu" class="hidden absolute bg-md-surface border border-[#444746] rounded-[12px] shadow-2xl py-2 w-48 z-50">
         <button id="menuFolderBtn" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted">create_new_folder</span> New folder</button>
         <button id="menuUploadBtn" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted">upload_file</span> File upload</button>
     </div>
 
-    <div id="uploadQueuePanel" class="fixed bottom-6 right-6 w-80 bg-md-surface border border-[#444746] rounded-[16px] shadow-2xl flex flex-col overflow-hidden z-[70] hidden transition-all duration-300">
+    <div id="uploadQueuePanel" class="fixed bottom-24 right-6 w-80 bg-md-surface border border-[#444746] rounded-[16px] shadow-2xl flex flex-col overflow-hidden z-[70] hidden transition-all duration-300">
         <div class="bg-md-hover px-4 py-3 flex justify-between items-center border-b border-[#444746] cursor-pointer" onclick="document.getElementById('uploadList').classList.toggle('hidden')">
             <span id="uploadQueueTitle" class="font-medium text-sm text-md-text">Preparing upload...</span>
             <button onclick="ui.closeUploadQueue(event)" class="text-md-text-muted hover:text-md-text transition flex items-center justify-center"><span class="material-symbols-rounded text-[20px]">close</span></button>
@@ -138,7 +156,7 @@
         <div id="uploadList" class="max-h-64 overflow-y-auto bg-md-bg flex flex-col"></div>
     </div>
 
-    <div id="toast" class="fixed bottom-24 md:bottom-10 left-1/2 transform -translate-x-1/2 bg-md-hover text-md-text px-6 py-3 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none z-50 flex items-center border border-[#444746]">
+    <div id="toast" class="fixed bottom-32 md:bottom-10 left-1/2 transform -translate-x-1/2 bg-md-hover text-md-text px-6 py-3 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none z-50 flex items-center border border-[#444746]">
         <span id="toastIcon" class="material-symbols-rounded mr-3 text-md-accent">info</span>
         <span id="toastMessage" class="text-sm font-medium"></span>
     </div>
@@ -152,16 +170,18 @@
     </div>
 
     <div id="itemMenu" class="hidden absolute bg-md-surface border border-[#444746] rounded-[12px] shadow-2xl py-2 w-48 z-50 transition-opacity">
+        <button id="menuItemToggleStar" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted" id="menuItemToggleStarIcon">star</span> <span id="menuItemToggleStarText">Add to Starred</span></button>
         <button id="menuItemTogglePublic" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted" id="menuItemTogglePublicIcon">public</span> <span id="menuItemTogglePublicText">Make Public</span></button>
         <button id="menuItemCopyLink" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted">link</span> Copy Link</button>
         <div class="my-1 border-t border-[#444746]"></div>
         <button id="menuItemCut" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted">content_cut</span> Cut</button>
         <button id="menuItemCopy" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted">content_copy</span> Copy</button>
         <div class="my-1 border-t border-[#444746]"></div>
-        <button id="menuItemDelete" class="w-full text-left px-4 py-3 text-[14px] text-red-400 hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-red-400">delete</span> Delete</button>
+        <button id="menuItemToggleTrash" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted" id="menuItemToggleTrashIcon">delete</span> <span id="menuItemToggleTrashText">Move to Trash</span></button>
+        <button id="menuItemPermanentDelete" class="w-full text-left px-4 py-3 text-[14px] text-red-400 hover:bg-md-hover flex items-center hidden"><span class="material-symbols-rounded mr-3 text-red-400">delete_forever</span> Delete Forever</button>
     </div>
     
-    <div id="clipboardBar" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-md-hover border border-[#444746] pl-6 pr-2 py-2 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-10 pointer-events-none z-[55] hidden items-center">
+    <div id="clipboardBar" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-md-hover border border-[#444746] pl-6 pr-2 py-2 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-10 pointer-events-none z-[55] hidden items-center">
         <span id="clipboardText" class="text-sm font-medium text-md-text mr-4">1 item copied</span>
         <button onclick="ui.pasteClipboard()" class="bg-md-accent text-[#001d35] px-4 py-1.5 rounded-full text-sm font-medium hover:bg-[#c2e7ff] transition mr-2 pointer-events-auto">Paste here</button>
         <button onclick="ui.clearClipboard()" class="w-8 h-8 rounded-full hover:bg-white/10 transition text-md-text-muted flex items-center justify-center pointer-events-auto"><span class="material-symbols-rounded text-[20px]">close</span></button>
