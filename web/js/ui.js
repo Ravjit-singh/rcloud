@@ -14,6 +14,73 @@ const ui = {
         this.toastTimer = setTimeout(() => toast.classList.add('opacity-0', 'translate-y-4'), 3000);
     },
 
+    // --- THE FIX: Custom Material Modals Engine ---
+    confirmModal(title, message, isDestructive = true, icon = 'warning') {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('customConfirmModal');
+            document.getElementById('confirmModalTitle').textContent = title;
+            document.getElementById('confirmModalDesc').textContent = message;
+            
+            const iconEl = document.getElementById('confirmModalIcon');
+            iconEl.textContent = icon;
+            iconEl.className = `material-symbols-rounded text-[32px] mr-3 ${isDestructive ? 'text-red-400' : 'text-md-accent'}`;
+            
+            const submitBtn = document.getElementById('confirmModalSubmitBtn');
+            submitBtn.className = isDestructive 
+                ? "bg-red-400 text-black font-medium px-6 py-2.5 rounded-full hover:bg-red-500 transition shadow-sm"
+                : "bg-md-accent text-[#001d35] font-medium px-6 py-2.5 rounded-full hover:bg-[#c2e7ff] transition shadow-sm";
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+
+            const cleanup = () => {
+                modal.classList.add('opacity-0');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+                document.getElementById('confirmModalCancelBtn').removeEventListener('click', onCancel);
+                submitBtn.removeEventListener('click', onSubmit);
+            };
+
+            const onCancel = () => { cleanup(); resolve(false); };
+            const onSubmit = () => { cleanup(); resolve(true); };
+
+            document.getElementById('confirmModalCancelBtn').addEventListener('click', onCancel);
+            submitBtn.addEventListener('click', onSubmit);
+        });
+    },
+
+    promptModal(title, placeholder = "", defaultValue = "", description = null) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('customPromptModal');
+            document.getElementById('promptModalTitle').textContent = title;
+            
+            const descEl = document.getElementById('promptModalDesc');
+            if (description) { descEl.textContent = description; descEl.classList.remove('hidden'); }
+            else { descEl.classList.add('hidden'); }
+
+            const input = document.getElementById('promptModalInput');
+            input.placeholder = placeholder;
+            input.value = defaultValue;
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); input.focus(); }, 10);
+
+            const cleanup = () => {
+                modal.classList.add('opacity-0');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+                document.getElementById('promptModalCancelBtn').removeEventListener('click', onCancel);
+                document.getElementById('promptModalSubmitBtn').removeEventListener('click', onSubmit);
+            };
+
+            const onCancel = () => { cleanup(); resolve(null); };
+            const onSubmit = () => { cleanup(); resolve(input.value.trim() || null); };
+
+            document.getElementById('promptModalCancelBtn').addEventListener('click', onCancel);
+            document.getElementById('promptModalSubmitBtn').addEventListener('click', onSubmit);
+            input.onkeydown = (e) => { if(e.key === 'Enter') onSubmit(); };
+        });
+    },
+    // ----------------------------------------------
+
     getFileIcon(filename) {
         const ext = filename.split('.').pop().toLowerCase();
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return { icon: 'image', color: 'text-md-accent' };
@@ -57,7 +124,6 @@ const ui = {
         const newBtn = document.getElementById('newBtn');
         const mobileNewBtn = document.getElementById('mobileNewBtn');
         
-        // Hide create buttons if not home, OR if user is frozen!
         if (view === 'home' && !state.isFrozen) { 
             if(newBtn) newBtn.classList.remove('hidden'); 
             if(mobileNewBtn) mobileNewBtn.classList.remove('hidden'); 
@@ -81,13 +147,13 @@ const ui = {
             container.innerHTML = `
                 <div class="flex items-center justify-between w-full">
                     <button class="hover:bg-md-hover px-3 py-1.5 -ml-3 rounded-[8px] transition flex items-center text-red-400 font-medium"><span class="material-symbols-rounded filled mr-2">delete</span> Trash</button>
-                    ${state.isFrozen ? '' : '<button onclick="ui.emptyTrash()" class="text-sm font-medium text-red-400 bg-red-400/10 hover:bg-red-400 hover:text-black px-4 py-1.5 rounded-full transition border border-red-400/50 shadow-sm">Empty Trash</button>'}
+                    ${state.isFrozen ? '' : '<button onclick="ui.emptyTrash()" class="text-sm font-medium text-red-400 bg-red-400/10 hover:bg-red-400 hover:text-black px-4 py-1.5 rounded-full transition border border-red-400/50 shadow-sm shrink-0 ml-4">Empty Trash</button>'}
                 </div>
             `;
         } else {
             state.path.forEach((crumb, index) => {
                 const btn = document.createElement('button');
-                btn.className = "hover:bg-md-hover px-3 py-1.5 rounded-[8px] transition flex items-center";
+                btn.className = "hover:bg-md-hover px-3 py-1.5 rounded-[8px] transition flex items-center shrink-0";
                 btn.innerHTML = `<span class="font-medium">${crumb.name}</span>`;
                 btn.onclick = () => {
                     state.path = state.path.slice(0, index + 1);
@@ -96,7 +162,7 @@ const ui = {
                 };
                 if (index > 0) {
                     const sep = document.createElement('span');
-                    sep.className = "material-symbols-rounded text-md-text-muted mx-1";
+                    sep.className = "material-symbols-rounded text-md-text-muted mx-1 shrink-0";
                     sep.textContent = "chevron_right";
                     container.appendChild(sep);
                 } else { btn.classList.add("-ml-3"); }
@@ -130,13 +196,12 @@ const ui = {
     async bulkDelete() {
         if (state.selected.size === 0) return;
         const isTrashView = state.currentView === 'trash';
+        const msg = isTrashView ? `Permanently delete ${state.selected.size} items? This cannot be undone.` : `Move ${state.selected.size} items to trash?`;
         
-        if (isTrashView) {
-            if (!confirm(`Permanently delete ${state.selected.size} items?`)) return;
-            this.showToast("Deleting items forever...", "delete_forever", "text-red-400");
-        } else {
-            this.showToast("Moving to trash...", "delete", "text-md-text-muted");
-        }
+        // Replaced native confirm with beautiful Custom Modal!
+        if (!(await this.confirmModal("Confirm Delete", msg, isTrashView, isTrashView ? "delete_forever" : "delete"))) return;
+        
+        this.showToast(isTrashView ? "Deleting items forever..." : "Moving to trash...", isTrashView ? "delete_forever" : "delete", "text-md-text-muted");
         
         let success = 0;
         for (const [id, item] of state.selected) {
@@ -153,7 +218,7 @@ const ui = {
     },
 
     async emptyTrash() {
-        if (!confirm("Permanently wipe all files in the trash? This cannot be undone.")) return;
+        if (!(await this.confirmModal("Empty Trash", "Permanently wipe all files in the trash? This cannot be undone.", true, "delete_forever"))) return;
         this.showToast("Emptying trash...", "delete_forever", "text-red-400");
         const res = await api.emptyTrash();
         if (res.status === 200) { this.showToast("Trash is empty", "check_circle", "text-green-400"); this.loadDrive(true); }
@@ -196,7 +261,6 @@ const ui = {
         const trashText = document.getElementById('menuItemToggleTrashText');
         const permDeleteBtn = document.getElementById('menuItemPermanentDelete');
         
-        // Hide delete actions entirely if frozen!
         if (state.isFrozen) {
             trashToggleBtn.classList.add('hidden');
             permDeleteBtn.classList.add('hidden');
@@ -218,7 +282,6 @@ const ui = {
             if (response.status === 401 || response.status === 403) return auth.showAuth();
             if (response.status !== 200) return this.showToast("Database Error", "error", "text-red-400");
             
-            // Set and enforce frozen state!
             state.isFrozen = response.data.isFrozen;
             if (state.isFrozen) {
                 const newBtn = document.getElementById('newBtn'); if(newBtn) newBtn.classList.add('hidden');
@@ -457,14 +520,21 @@ const ui = {
         else { this.showToast("Failed to paste items", "error", "text-red-400"); }
     },
 
+    // REPLACED PROMPT FALLBACK
     async toggleShare(id, type, makePublic, shareId) {
         this.showToast(makePublic ? "Generating link..." : "Revoking link...", "link", "text-md-accent");
         const res = await api.toggleShare(id, type, makePublic);
         if (res.status === 200) {
             if (makePublic) {
                 const link = `${window.location.origin}/share/${type}/${shareId}`;
-                try { await navigator.clipboard.writeText(link); this.showToast("Link copied to clipboard!", "content_copy", "text-green-400"); } 
-                catch (err) { prompt("Your public link is ready. Copy it below:", link); this.showToast("Link generated!", "check_circle", "text-green-400"); }
+                try { 
+                    await navigator.clipboard.writeText(link); 
+                    this.showToast("Link copied to clipboard!", "content_copy", "text-green-400"); 
+                } 
+                catch (err) { 
+                    await this.promptModal("Link Ready", "", link, "Your public link is ready. Copy it below:");
+                    this.showToast("Link generated!", "check_circle", "text-green-400"); 
+                }
             } else { this.showToast("Link disabled (Private)", "lock", "text-md-text-muted"); }
             this.loadDrive(true);
         } else { this.showToast("Failed to change permissions", "error", "text-red-400"); }
@@ -515,5 +585,20 @@ const ui = {
         if (completed < total) title.textContent = `Uploading ${total - completed} item(s)...`; else title.textContent = `${completed} upload(s) complete`;
     },
 
-    closeUploadQueue(e) { e.stopPropagation(); document.getElementById('uploadQueuePanel').classList.add('hidden'); document.getElementById('uploadList').innerHTML = ''; }
+    closeUploadQueue(e) { e.stopPropagation(); document.getElementById('uploadQueuePanel').classList.add('hidden'); document.getElementById('uploadList').innerHTML = ''; },
+
+    // REPLACED NATIVE CONFIRMS
+    async deleteFile(id) {
+        if (!(await this.confirmModal("Delete File", "Permanently delete this file?", true, "delete_forever"))) return;
+        const res = await api.deleteFile(id);
+        if (res.status === 200) { this.showToast("File deleted", "delete", "text-md-text-muted"); this.loadDrive(true); }
+    },
+
+    async deleteFolder(id, name) {
+        if (!(await this.confirmModal("Delete Folder", `Delete folder "${name}" and ALL files inside it?`, true, "delete_forever"))) return;
+        this.showToast("Deleting folder...", "delete", "text-md-text-muted");
+        const res = await api.deleteFolder(id);
+        if (res.status === 200) { this.showToast("Folder deleted", "check_circle", "text-green-400"); this.loadDrive(true); } 
+        else { this.showToast("Failed to delete", "error", "text-red-400"); }
+    }
 };

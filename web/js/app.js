@@ -95,11 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('menuUploadBtn').addEventListener('click', () => fileInput.click());
 
+    // THE FIX: Refactored prompt into Custom Material Modal
     document.getElementById('menuFolderBtn').addEventListener('click', async () => {
-        const folderName = prompt("Enter folder name:");
+        newMenu.classList.add('hidden');
+        const folderName = await ui.promptModal("New Folder", "Enter folder name...", "", "Create a new folder in this directory.");
         if (folderName) {
             ui.showToast("Creating folder...", "create_new_folder", "text-md-accent");
-            newMenu.classList.add('hidden'); 
             const res = await api.createFolder(folderName, state.currentFolderId);
             if (res.status === 200) { ui.showToast("Folder created!", "check_circle", "text-green-400"); ui.loadDrive(); } 
             else { ui.showToast("Failed to create folder", "error", "text-red-400"); }
@@ -129,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         itemMenu.classList.add('hidden');
     });
 
+    // THE FIX: Refactored prompt fallback into Custom Material Modal
     document.getElementById('menuItemCopyLink').addEventListener('click', async () => {
         const target = state.activeMenuTarget;
         if (target) {
@@ -136,12 +138,13 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(link); ui.showToast("Link copied to clipboard!", "content_copy", "text-green-400"); } 
                 else { throw new Error(); }
-            } catch (err) { prompt("Your public link is ready. Copy it below:", link); }
+            } catch (err) { 
+                await ui.promptModal("Link Ready", "", link, "Your public link is ready. Copy it below:");
+            }
         }
         itemMenu.classList.add('hidden');
     });
 
-    // NEW MENU ACTIONS
     document.getElementById('menuItemToggleStar').addEventListener('click', async () => {
         const t = state.activeMenuTarget;
         if (t) { await api.toggleStar(t.id, t.type, !t.isStarred); ui.loadDrive(true); }
@@ -154,13 +157,14 @@ document.addEventListener('DOMContentLoaded', () => {
         itemMenu.classList.add('hidden');
     });
 
+    // THE FIX: Refactored confirm into Custom Material Modal
     document.getElementById('menuItemPermanentDelete').addEventListener('click', async () => {
         const t = state.activeMenuTarget;
-        if (t && confirm("Delete forever?")) { 
+        itemMenu.classList.add('hidden');
+        if (t && await ui.confirmModal("Delete Forever", "Permanently delete this item? This cannot be undone.", true, "delete_forever")) { 
             if (t.type === 'folder') await api.deleteFolder(t.id); else await api.deleteFile(t.id); 
             ui.loadDrive(true); 
         }
-        itemMenu.classList.add('hidden');
     });
 
     document.getElementById('bulkCutBtn').addEventListener('click', () => { ui.setClipboard('cut', Array.from(state.selected.values())); bulkMenu.classList.add('hidden'); });

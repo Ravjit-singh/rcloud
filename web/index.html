@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>My Drive - R Cloud</title>
     
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0" />
@@ -27,9 +27,16 @@
         body { letter-spacing: 0.01em; overscroll-behavior-y: none; }
         .material-symbols-rounded { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .material-symbols-rounded.filled { font-variation-settings: 'FILL' 1; }
+        
+        /* Standard Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #444746; border-radius: 10px; }
+        
+        /* THE FIX: Invisible Scrollbar for Breadcrumbs */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
@@ -95,14 +102,17 @@
             </aside>
 
             <main class="flex-1 bg-md-surface md:rounded-[24px] md:m-2 md:mt-0 md:mr-4 flex flex-col overflow-hidden relative">
-                <div class="shrink-0 px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between border-b border-md-bg/30">
-                    <div class="flex items-center text-[18px] text-md-text mb-3 md:mb-0 w-full md:w-auto" id="breadcrumbContainer"><button class="hover:bg-md-hover px-3 py-1.5 -ml-3 rounded-[8px] transition flex items-center"><span class="font-medium">My Drive</span></button></div>
+                
+                <div class="shrink-0 px-4 md:px-6 py-3 flex items-center justify-between border-b border-md-bg/30 w-full overflow-hidden gap-2">
+                    <div class="flex items-center text-[18px] text-md-text flex-1 overflow-x-auto hide-scrollbar whitespace-nowrap" id="breadcrumbContainer">
+                        <button class="hover:bg-md-hover px-3 py-1.5 -ml-3 rounded-[8px] transition flex items-center"><span class="font-medium">My Drive</span></button>
+                    </div>
                     
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-1 sm:space-x-2 shrink-0">
                         <div class="relative">
-                            <button id="sortMenuTrigger" class="flex items-center text-sm font-medium text-md-text-muted hover:bg-md-hover px-3 py-1.5 rounded-full transition">
+                            <button id="sortMenuTrigger" class="flex items-center text-sm font-medium text-md-text-muted hover:bg-md-hover px-3 py-1.5 rounded-full transition whitespace-nowrap">
                                 <span id="sortIndicatorLabel">Name</span>
-                                <span class="material-symbols-rounded text-[18px] ml-1" id="sortIndicatorIcon">arrow_upward</span>
+                                <span class="material-symbols-rounded text-[18px] ml-1 shrink-0" id="sortIndicatorIcon">arrow_upward</span>
                             </button>
                             <div id="sortMenu" class="hidden absolute top-10 right-0 bg-md-surface border border-[#444746] rounded-[12px] shadow-2xl py-2 w-40 z-50">
                                 <button onclick="ui.setSort('name')" class="w-full text-left px-4 py-2.5 text-[14px] text-md-text hover:bg-md-hover">Name</button>
@@ -110,7 +120,7 @@
                                 <button onclick="ui.setSort('size')" class="w-full text-left px-4 py-2.5 text-[14px] text-md-text hover:bg-md-hover">File Size</button>
                             </div>
                         </div>
-                        <button id="viewToggleBtn" class="p-2 rounded-full text-md-text-muted hover:bg-md-hover transition flex items-center justify-center">
+                        <button id="viewToggleBtn" class="p-2 rounded-full text-md-text-muted hover:bg-md-hover transition flex items-center justify-center shrink-0">
                             <span class="material-symbols-rounded" id="viewToggleIcon">view_list</span>
                         </button>
                     </div>
@@ -126,18 +136,10 @@
         </div>
         
         <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-md-surface border-t border-[#444746] flex justify-around items-center h-16 z-40 pb-safe shadow-[0_-4px_6px_rgba(0,0,0,0.3)]">
-            <button id="bottom-nav-home" onclick="ui.switchView('home')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-accent transition">
-                <span class="material-symbols-rounded text-[24px]">home</span><span class="text-[10px] font-medium mt-1">Home</span>
-            </button>
-            <button id="bottom-nav-starred" onclick="ui.switchView('starred')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-text-muted transition">
-                <span class="material-symbols-rounded text-[24px]">star</span><span class="text-[10px] font-medium mt-1">Starred</span>
-            </button>
-            <button id="bottom-nav-shared" onclick="ui.switchView('shared')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-text-muted transition">
-                <span class="material-symbols-rounded text-[24px]">group</span><span class="text-[10px] font-medium mt-1">Shared</span>
-            </button>
-            <button id="bottom-nav-trash" onclick="ui.switchView('trash')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-text-muted transition">
-                <span class="material-symbols-rounded text-[24px]">delete</span><span class="text-[10px] font-medium mt-1">Trash</span>
-            </button>
+            <button id="bottom-nav-home" onclick="ui.switchView('home')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-accent transition"><span class="material-symbols-rounded text-[24px]">home</span><span class="text-[10px] font-medium mt-1">Home</span></button>
+            <button id="bottom-nav-starred" onclick="ui.switchView('starred')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-text-muted transition"><span class="material-symbols-rounded text-[24px]">star</span><span class="text-[10px] font-medium mt-1">Starred</span></button>
+            <button id="bottom-nav-shared" onclick="ui.switchView('shared')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-text-muted transition"><span class="material-symbols-rounded text-[24px]">group</span><span class="text-[10px] font-medium mt-1">Shared</span></button>
+            <button id="bottom-nav-trash" onclick="ui.switchView('trash')" class="bottom-nav-btn flex flex-col items-center justify-center w-full h-full text-md-text-muted transition"><span class="material-symbols-rounded text-[24px]">delete</span><span class="text-[10px] font-medium mt-1">Trash</span></button>
         </nav>
     </div>
     
@@ -185,6 +187,32 @@
         <span id="clipboardText" class="text-sm font-medium text-md-text mr-4">1 item copied</span>
         <button onclick="ui.pasteClipboard()" class="bg-md-accent text-[#001d35] px-4 py-1.5 rounded-full text-sm font-medium hover:bg-[#c2e7ff] transition mr-2 pointer-events-auto">Paste here</button>
         <button onclick="ui.clearClipboard()" class="w-8 h-8 rounded-full hover:bg-white/10 transition text-md-text-muted flex items-center justify-center pointer-events-auto"><span class="material-symbols-rounded text-[20px]">close</span></button>
+    </div>
+
+    <div id="customConfirmModal" class="hidden fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="bg-md-surface p-6 md:p-8 rounded-[24px] w-full max-w-[400px] border border-[#444746] shadow-2xl relative">
+            <div class="flex items-center mb-4">
+                <span id="confirmModalIcon" class="material-symbols-rounded text-[32px] text-red-400 mr-3">warning</span>
+                <h3 id="confirmModalTitle" class="text-xl font-medium text-md-text">Confirm Action</h3>
+            </div>
+            <p id="confirmModalDesc" class="text-md-text-muted text-[15px] mb-8">Are you sure?</p>
+            <div class="flex justify-end space-x-3">
+                <button id="confirmModalCancelBtn" class="px-5 py-2.5 text-md-text font-medium hover:bg-white/10 rounded-full transition">Cancel</button>
+                <button id="confirmModalSubmitBtn" class="bg-red-400 text-black font-medium px-6 py-2.5 rounded-full hover:bg-red-500 transition shadow-sm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="customPromptModal" class="hidden fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="bg-md-surface p-6 md:p-8 rounded-[24px] w-full max-w-[400px] border border-[#444746] shadow-2xl relative">
+            <h3 id="promptModalTitle" class="text-xl font-medium text-md-text mb-2">Enter Value</h3>
+            <p id="promptModalDesc" class="text-md-text-muted text-[14px] mb-6 hidden"></p>
+            <input type="text" id="promptModalInput" class="w-full bg-md-bg border border-[#444746] rounded-[12px] py-3 px-4 text-md-text focus:outline-none focus:border-md-accent focus:border-2 transition-all mb-8">
+            <div class="flex justify-end space-x-3">
+                <button id="promptModalCancelBtn" class="px-5 py-2.5 text-md-text font-medium hover:bg-white/10 rounded-full transition">Cancel</button>
+                <button id="promptModalSubmitBtn" class="bg-md-accent text-[#001d35] font-medium px-6 py-2.5 rounded-full hover:bg-[#c2e7ff] transition shadow-sm">Confirm</button>
+            </div>
+        </div>
     </div>
 
     <input type="file" id="hiddenFileInput" class="hidden" multiple>

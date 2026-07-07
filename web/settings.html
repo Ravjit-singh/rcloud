@@ -5,148 +5,240 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Settings - R Cloud</title>
     
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0" />
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts & Material Symbols -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        'md-bg': 'var(--md-bg, #131314)', 'md-surface': 'var(--md-surface, #1e1f20)', 'md-hover': 'var(--md-hover, #282a2c)',
-                        'md-text': 'var(--md-text, #e3e3e3)', 'md-text-muted': 'var(--md-text-muted, #c4c7c5)', 'md-accent': 'var(--md-accent, #a8c7fa)',
-                        'md-active': 'var(--md-active, #004a77)', 'md-fab': 'var(--md-fab, #c2e7ff)', 'md-fab-text': 'var(--md-fab-text, #001d35)'
+                        /* Authentic Material 3 Dark Theme Tokens */
+                        'md-bg': '#131314',
+                        'md-surface': '#1e1f20',
+                        'md-surface-container': '#282a2c',
+                        'md-on-surface': '#e3e3e3',
+                        'md-on-surface-variant': '#c4c7c5',
+                        'md-outline': '#444746',
+                        'md-primary': '#a8c7fa',
+                        'md-on-primary': '#062e6f',
+                        'md-primary-container': '#004a77',
+                        'md-on-primary-container': '#c2e7ff',
+                        'md-error': '#f2b8b5',
+                        'md-error-container': '#8c1d18',
+                        'md-on-error-container': '#f9dedc'
                     },
-                    fontFamily: { sans: ['Roboto', 'sans-serif'] }
+                    fontFamily: { 
+                        sans: ['Roboto', 'sans-serif'],
+                        google: ['"Google Sans"', 'Roboto', 'sans-serif']
+                    }
                 }
             }
         }
     </script>
+    
+    <!-- Preserved Original Scripts[span_1](start_span)[span_1](end_span) -->
     <script src="/js/theme.js"></script>
+    
     <style>
-        body { letter-spacing: 0.01em; overscroll-behavior-y: none; }
-        .material-symbols-rounded { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        .material-symbols-rounded.filled { font-variation-settings: 'FILL' 1; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        body { 
+            overscroll-behavior-y: none; 
+            background-color: #131314;
+        }
+        .material-symbols-rounded { 
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; 
+        }
+        .material-symbols-rounded.filled { 
+            font-variation-settings: 'FILL' 1; 
+        }
+        /* Custom scrollbar to match Google */
+        ::-webkit-scrollbar { width: 14px; height: 14px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #444746; border-radius: 10px; }
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        ::-webkit-scrollbar-thumb { 
+            background-color: rgba(255,255,255,0.3); 
+            border: 4px solid #1e1f20;
+            border-radius: 8px; 
+        }
+        ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.5); }
     </style>
 </head>
-<body class="bg-md-bg text-md-text font-sans h-screen overflow-hidden flex flex-col selection:bg-md-active selection:text-md-accent relative">
+<body class="bg-md-bg text-md-on-surface font-sans h-screen overflow-hidden flex flex-col selection:bg-md-primary-container selection:text-md-on-primary-container">
 
-    <header class="h-[64px] flex items-center justify-between px-2 md:px-4 shrink-0 relative">
-        <div class="flex items-center space-x-2">
-            <button onclick="window.location.href='/'" class="p-2 hover:bg-md-hover rounded-full transition text-md-text flex items-center">
-                <span class="material-symbols-rounded text-[24px]">arrow_back</span>
+    <!-- Drive-style Top App Bar -->
+    <header class="h-[64px] flex items-center justify-between px-4 shrink-0 relative w-full">
+        <div class="flex items-center w-[238px] shrink-0">
+            <!-- Hamburger Menu (Visual only to match Drive) -->
+            <button class="p-2 hover:bg-white/10 rounded-full transition text-md-on-surface-variant flex items-center mr-2">
+                <span class="material-symbols-rounded text-[24px]">menu</span>
             </button>
-            <div class="flex items-center space-x-2 pl-2 cursor-pointer" onclick="window.location.href='/'">
-                <span class="text-[22px] font-medium text-md-text">Settings</span>
+            <!-- Logo area -->
+            <div class="flex items-center space-x-2 cursor-pointer rounded-lg px-2 py-1 hover:bg-white/5 transition" onclick="window.location.href='/'">
+                <span class="material-symbols-rounded filled text-[28px] text-md-primary">cloud</span>
+                <span class="text-[22px] font-google font-normal text-md-on-surface tracking-[-0.5px]">R Cloud</span>
             </div>
         </div>
         
-        <div class="flex items-center space-x-1 pr-2">
-            <div class="w-9 h-9 ml-2 rounded-full bg-[#004a77] flex items-center justify-center ring-2 ring-md-accent transition">
-                <span id="headerInitial" class="text-md-accent font-medium text-sm">U</span>
+        <!-- Search Bar (Visual placeholder for genuine layout feel) -->
+        <div class="hidden md:flex flex-1 max-w-[720px] bg-md-surface-container h-[48px] rounded-full items-center px-2 border border-transparent focus-within:bg-md-surface focus-within:border-md-outline focus-within:shadow-md transition-all mx-4 group">
+            <button class="p-2 rounded-full text-md-on-surface-variant group-focus-within:text-md-on-surface flex items-center">
+                <span class="material-symbols-rounded">search</span>
+            </button>
+            <input type="text" placeholder="Search in R Cloud" class="flex-1 bg-transparent border-none outline-none text-md-on-surface placeholder:text-md-on-surface-variant text-[16px]" disabled>
+        </div>
+
+        <!-- Header Actions & Avatar -->
+        <div class="flex items-center space-x-2 pr-2 shrink-0">
+            <button class="hidden sm:flex p-2 hover:bg-white/10 rounded-full transition text-md-on-surface-variant items-center">
+                <span class="material-symbols-rounded">help</span>
+            </button>
+            <button class="hidden sm:flex p-2 hover:bg-white/10 rounded-full transition text-md-on-surface-variant items-center mr-2">
+                <span class="material-symbols-rounded">apps</span>
+            </button>
+            <div class="w-9 h-9 rounded-full bg-md-primary-container hover:ring-4 hover:ring-white/10 flex items-center justify-center cursor-pointer transition-all">
+                <!-- Preserved headerInitial ID[span_2](start_span)[span_2](end_span) -->
+                <span id="headerInitial" class="text-md-on-primary-container font-google font-medium text-sm">U</span>
             </div>
         </div>
     </header>
 
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex overflow-hidden w-full">
         
-        <!-- Identical Drive Sidebar for Desktop -->
-        <aside class="w-64 shrink-0 flex-col hidden md:flex">
-            <nav class="flex-1 px-3 space-y-1 mt-6">
-                <button onclick="window.location.href='/'" class="w-full flex items-center text-md-text hover:bg-md-hover px-4 py-2.5 rounded-full font-medium text-[14px] transition">
-                    <span class="material-symbols-rounded mr-3 text-md-text-muted">hard_drive</span> My Drive
+        <!-- Authentic Drive Sidebar Layout -->
+        <aside class="w-[256px] shrink-0 flex-col hidden md:flex pl-3 pr-4 py-2">
+            <!-- Emulated 'New' Button -->
+            <button class="w-[105px] h-[56px] bg-md-surface-container hover:bg-white/10 hover:shadow-md text-md-on-surface rounded-2xl flex items-center justify-center gap-2 mb-4 transition-all shadow-sm border border-transparent ml-1">
+                <span class="material-symbols-rounded text-[24px]">add</span>
+                <span class="font-google font-medium text-[14px]">New</span>
+            </button>
+
+            <!-- Navigation Links -->
+            <nav class="space-y-1">
+                <button onclick="window.location.href='/'" class="w-full flex items-center text-md-on-surface hover:bg-white/5 px-4 py-[10px] rounded-full text-[14px] transition">
+                    <span class="material-symbols-rounded mr-3 text-[20px] text-md-on-surface-variant">hard_drive</span> 
+                    <span class="font-google">My Drive</span>
                 </button>
-                <button class="w-full flex items-center bg-md-active text-md-accent px-4 py-2.5 rounded-full font-medium text-[14px] transition mt-2">
-                    <span class="material-symbols-rounded filled mr-3">settings</span> Settings
+                <button class="w-full flex items-center bg-md-primary-container text-md-on-primary-container px-4 py-[10px] rounded-full text-[14px] transition">
+                    <span class="material-symbols-rounded filled mr-3 text-[20px]">settings</span> 
+                    <span class="font-google font-medium">Settings</span>
                 </button>
             </nav>
         </aside>
 
-        <!-- Main Settings Dashboard wrapped in the Drive UI Frame -->
-        <main class="flex-1 bg-md-surface md:rounded-[24px] md:m-2 md:mt-0 md:mr-4 flex flex-col overflow-y-auto relative shadow-sm pb-safe">
-            <div class="p-4 md:p-8 max-w-4xl mx-auto w-full space-y-8 pb-20 mt-2 md:mt-4">
+        <!-- Main Content Area: The classic M3 Drive Rounded Container -->
+        <main class="flex-1 bg-md-surface md:rounded-2xl md:mr-4 md:mb-4 flex flex-col overflow-y-auto relative border border-white/5 md:shadow-sm">
+            <div class="p-6 md:p-8 max-w-[800px] w-full mx-auto pb-24">
                 
-                <!-- Profile Block -->
-                <section class="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 bg-md-bg border border-[#444746] rounded-[24px] p-6 shadow-sm">
-                    <div class="w-20 h-20 rounded-full bg-[#004a77] flex items-center justify-center text-3xl text-md-accent font-medium shrink-0 shadow-inner">
-                        <span id="settingsInitial">...</span>
-                    </div>
-                    <div class="text-center sm:text-left flex-1 mt-1">
-                        <h3 class="text-2xl font-medium text-md-text" id="settingsUsername">Loading...</h3>
-                        <p class="text-md-text-muted mt-1">Vault Administrator</p>
-                    </div>
-                </section>
-
-                <!-- Appearance Block -->
-                <section>
-                    <h4 class="text-[13px] font-medium text-md-text-muted uppercase tracking-wider mb-4 ml-2">Appearance</h4>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="themeSelectors">
-                        <label class="theme-card flex flex-col items-center justify-center p-6 border border-[#444746] rounded-[16px] cursor-pointer hover:bg-md-hover transition group" data-theme="light">
-                            <input type="radio" name="theme" value="light" class="hidden">
-                            <span class="icon material-symbols-rounded text-[32px] text-md-text-muted group-hover:text-md-text mb-3">light_mode</span>
-                            <span class="text font-medium text-sm text-md-text-muted group-hover:text-md-text">Light</span>
-                        </label>
-
-                        <label class="theme-card flex flex-col items-center justify-center p-6 border border-md-accent bg-[#004a77]/20 rounded-[16px] cursor-pointer transition group" data-theme="dark">
-                            <input type="radio" name="theme" value="dark" class="hidden" checked>
-                            <span class="icon material-symbols-rounded filled text-[32px] text-md-accent mb-3">dark_mode</span>
-                            <span class="text font-medium text-sm text-md-accent">Dark</span>
-                        </label>
-
-                        <label class="theme-card flex flex-col items-center justify-center p-6 border border-[#444746] rounded-[16px] cursor-pointer hover:bg-md-hover transition group" data-theme="device">
-                            <input type="radio" name="theme" value="device" class="hidden">
-                            <span class="icon material-symbols-rounded text-[32px] text-md-text-muted group-hover:text-md-text mb-3">settings_brightness</span>
-                            <span class="text font-medium text-sm text-md-text-muted group-hover:text-md-text">Device System</span>
-                        </label>
-                    </div>
-                </section>
-
-                <!-- Security Block -->
-                <section>
-                    <h4 class="text-[13px] font-medium text-md-text-muted uppercase tracking-wider mb-4 ml-2">Security</h4>
-                    <div class="bg-md-bg border border-[#444746] rounded-[24px] p-6 space-y-4 shadow-sm">
-                        <div class="flex flex-col sm:flex-row gap-4">
-                            <input type="password" id="currentPassword" class="flex-1 bg-md-surface border border-[#444746] rounded-[12px] py-3 px-4 text-md-text focus:outline-none focus:border-md-accent focus:border-2 transition-all" placeholder="Current Password">
-                            <input type="password" id="newPassword" class="flex-1 bg-md-surface border border-[#444746] rounded-[12px] py-3 px-4 text-md-text focus:outline-none focus:border-md-accent focus:border-2 transition-all" placeholder="New Password">
+                <h1 class="text-[28px] font-google text-md-on-surface mb-8 tracking-[-0.5px]">Settings</h1>
+                
+                <div class="space-y-10">
+                    <!-- Profile Block -->
+                    <section class="flex items-center space-x-6 pb-8 border-b border-md-outline/30">
+                        <!-- Preserved settingsInitial ID[span_3](start_span)[span_3](end_span) -->
+                        <div class="w-[72px] h-[72px] rounded-full bg-md-primary-container flex items-center justify-center text-3xl text-md-on-primary-container font-google font-medium shrink-0">
+                            <span id="settingsInitial">...</span>
                         </div>
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-2">
-                            <p id="passwordStatus" class="text-sm font-medium h-4 mb-4 sm:mb-0"></p>
-                            <button id="changePasswordBtn" class="bg-md-active text-md-accent hover:bg-[#005a8f] font-medium py-2.5 px-6 rounded-full transition shrink-0 shadow w-full sm:w-auto">Update Password</button>
+                        <div class="flex-1">
+                            <!-- Preserved settingsUsername ID[span_4](start_span)[span_4](end_span) -->
+                            <h3 class="text-2xl font-google text-md-on-surface" id="settingsUsername">Loading...</h3>
+                            <p class="text-[14px] text-md-on-surface-variant mt-1">Vault Administrator</p>
                         </div>
-                    </div>
-                </section>
+                    </section>
 
-                <!-- Danger Zone -->
-                <section>
-                    <h4 class="text-[13px] font-medium text-red-400 uppercase tracking-wider mb-4 ml-2">Account Actions</h4>
-                    <div class="bg-md-bg border border-red-400/30 rounded-[24px] p-6 flex flex-col sm:flex-row items-center justify-between shadow-sm gap-4">
-                        <div class="text-center sm:text-left">
-                            <h5 class="text-lg font-medium text-md-text">Sign out</h5>
-                            <p class="text-md-text-muted text-[13px] mt-1">Securely terminate your vault session on this device.</p>
+                    <!-- Appearance Block -->
+                    <section>
+                        <h4 class="text-[14px] font-google font-medium text-md-on-surface-variant mb-4">Appearance</h4>
+                        <!-- Preserved themeSelectors ID[span_5](start_span)[span_5](end_span) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="themeSelectors">
+                            <!-- Light Theme Card -->
+                            <label class="theme-card relative flex items-center p-4 border border-md-outline rounded-xl cursor-pointer hover:bg-white/5 transition group" data-theme="light">
+                                <!-- Preserved input logic[span_6](start_span)[span_6](end_span) -->
+                                <input type="radio" name="theme" value="light" class="hidden">
+                                <span class="icon material-symbols-rounded text-[24px] text-md-on-surface-variant group-hover:text-md-on-surface mr-4">light_mode</span>
+                                <span class="text font-google text-[15px] text-md-on-surface-variant group-hover:text-md-on-surface flex-1">Light</span>
+                                <span class="check-icon material-symbols-rounded text-md-primary opacity-0 transition-opacity">check_circle</span>
+                            </label>
+
+                            <!-- Dark Theme Card (Default active style applied via JS) -->
+                            <label class="theme-card relative flex items-center p-4 border border-md-outline rounded-xl cursor-pointer hover:bg-white/5 transition group" data-theme="dark">
+                                <input type="radio" name="theme" value="dark" class="hidden" checked>
+                                <span class="icon material-symbols-rounded text-[24px] text-md-on-surface-variant group-hover:text-md-on-surface mr-4">dark_mode</span>
+                                <span class="text font-google text-[15px] text-md-on-surface-variant group-hover:text-md-on-surface flex-1">Dark</span>
+                                <span class="check-icon material-symbols-rounded text-md-primary opacity-0 transition-opacity">check_circle</span>
+                            </label>
+
+                            <!-- Device Theme Card -->
+                            <label class="theme-card relative flex items-center p-4 border border-md-outline rounded-xl cursor-pointer hover:bg-white/5 transition group" data-theme="device">
+                                <input type="radio" name="theme" value="device" class="hidden">
+                                <span class="icon material-symbols-rounded text-[24px] text-md-on-surface-variant group-hover:text-md-on-surface mr-4">settings_brightness</span>
+                                <span class="text font-google text-[15px] text-md-on-surface-variant group-hover:text-md-on-surface flex-1">System</span>
+                                <span class="check-icon material-symbols-rounded text-md-primary opacity-0 transition-opacity">check_circle</span>
+                            </label>
                         </div>
-                        <button id="logoutSettingsBtn" class="bg-red-400/10 text-red-400 border border-red-400/50 hover:bg-red-400 hover:text-[#131314] font-medium py-2.5 px-8 rounded-full transition shrink-0 flex items-center shadow-sm w-full sm:w-auto justify-center">
-                            <span class="material-symbols-rounded mr-2 text-[20px]">logout</span> Logout
-                        </button>
-                    </div>
-                </section>
+                    </section>
 
+                    <div class="h-[1px] w-full bg-md-outline/30"></div>
+
+                    <!-- Security Block -->
+                    <section>
+                        <h4 class="text-[14px] font-google font-medium text-md-on-surface-variant mb-6">Security</h4>
+                        
+                        <div class="max-w-[400px] space-y-4">
+                            <!-- Authentic Material 3 Outlined Text Field with Floating Label -->
+                            <div class="relative">
+                                <!-- Preserved currentPassword ID[span_7](start_span)[span_7](end_span) -->
+                                <input type="password" id="currentPassword" class="peer w-full h-[56px] bg-transparent border border-md-outline rounded-[4px] px-4 text-md-on-surface focus:border-md-primary focus:border-2 outline-none transition-all placeholder-transparent" placeholder="Current Password">
+                                <label class="absolute left-4 top-[16px] text-md-on-surface-variant text-[16px] peer-focus:text-md-primary peer-focus:text-[12px] peer-focus:-translate-y-[26px] peer-focus:bg-md-surface peer-focus:px-1 peer-[:not(:placeholder-shown)]:text-[12px] peer-[:not(:placeholder-shown)]:-translate-y-[26px] peer-[:not(:placeholder-shown)]:bg-md-surface peer-[:not(:placeholder-shown)]:px-1 transition-all pointer-events-none">Current Password</label>
+                            </div>
+
+                            <!-- Authentic Material 3 Outlined Text Field with Floating Label -->
+                            <div class="relative">
+                                <!-- Preserved newPassword ID[span_8](start_span)[span_8](end_span) -->
+                                <input type="password" id="newPassword" class="peer w-full h-[56px] bg-transparent border border-md-outline rounded-[4px] px-4 text-md-on-surface focus:border-md-primary focus:border-2 outline-none transition-all placeholder-transparent" placeholder="New Password">
+                                <label class="absolute left-4 top-[16px] text-md-on-surface-variant text-[16px] peer-focus:text-md-primary peer-focus:text-[12px] peer-focus:-translate-y-[26px] peer-focus:bg-md-surface peer-focus:px-1 peer-[:not(:placeholder-shown)]:text-[12px] peer-[:not(:placeholder-shown)]:-translate-y-[26px] peer-[:not(:placeholder-shown)]:bg-md-surface peer-[:not(:placeholder-shown)]:px-1 transition-all pointer-events-none">New Password</label>
+                            </div>
+                            
+                            <div class="flex items-center justify-between pt-2">
+                                <!-- Preserved changePasswordBtn and passwordStatus IDs[span_9](start_span)[span_9](end_span) -->
+                                <button id="changePasswordBtn" class="bg-md-primary text-md-on-primary hover:bg-[#b5d0ff] font-google font-medium py-2.5 px-6 rounded-full transition shadow-sm">Update Password</button>
+                                <p id="passwordStatus" class="text-[13px] font-medium ml-4"></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="h-[1px] w-full bg-md-outline/30"></div>
+
+                    <!-- Account Actions -->
+                    <section>
+                        <h4 class="text-[14px] font-google font-medium text-md-error mb-4">Account Administration</h4>
+                        <div class="flex items-center justify-between py-2">
+                            <div>
+                                <h5 class="text-[16px] font-google text-md-on-surface">Sign out of this vault</h5>
+                                <p class="text-[13px] text-md-on-surface-variant mt-1">End your current session on this device.</p>
+                            </div>
+                            <!-- Preserved logoutSettingsBtn ID[span_10](start_span)[span_10](end_span) -->
+                            <button id="logoutSettingsBtn" class="border border-md-outline text-md-error hover:bg-md-error/10 font-google font-medium py-2 px-6 rounded-full transition flex items-center">
+                                <span class="material-symbols-rounded mr-2 text-[20px]">logout</span> Sign out
+                            </button>
+                        </div>
+                    </section>
+
+                </div>
             </div>
         </main>
     </div>
 
-    <!-- THE FIX: Required State File imported BEFORE api.js -->
+    <!-- Preserved Original Scripts & Execution Order[span_11](start_span)[span_11](end_span) -->
     <script src="/js/state.js"></script>
     <script src="/js/api.js"></script>
     
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             
-            // Fetch User Data safely
+            // Preserved User Data Fetch Logic[span_12](start_span)[span_12](end_span)
             try {
                 const res = await api.getDrive(); 
                 if (res.status === 200) {
@@ -161,13 +253,13 @@
                 window.location.href = '/'; 
             }
 
-            // Logout Handler
+            // Preserved Logout Logic[span_13](start_span)[span_13](end_span)
             document.getElementById('logoutSettingsBtn').addEventListener('click', async () => {
                 await api.logout();
                 window.location.href = '/';
             });
 
-            // Password Handler
+            // Preserved Password Handler Logic[span_14](start_span)[span_14](end_span)
             document.getElementById('changePasswordBtn').addEventListener('click', async () => {
                 const currentPass = document.getElementById('currentPassword').value;
                 const newPass = document.getElementById('newPassword').value;
@@ -175,56 +267,58 @@
                 
                 if (!currentPass || !newPass) {
                     status.textContent = "Please fill both fields.";
-                    status.className = "text-sm font-medium h-4 text-red-400";
+                    status.className = "text-[13px] font-medium text-md-error ml-4";
                     return;
                 }
                 
                 status.textContent = "Updating...";
-                status.className = "text-sm font-medium h-4 text-md-text-muted";
+                status.className = "text-[13px] font-medium text-md-on-surface-variant ml-4";
                 
                 const response = await api.updatePassword(currentPass, newPass);
                 if (response.status === 200) {
                     status.textContent = "Password updated securely!";
-                    status.className = "text-sm font-medium h-4 text-green-400";
+                    status.className = "text-[13px] font-medium text-green-400 ml-4";
                     document.getElementById('currentPassword').value = '';
                     document.getElementById('newPassword').value = '';
                 } else {
                     status.textContent = response.data.error || "Update failed.";
-                    status.className = "text-sm font-medium h-4 text-red-400";
+                    status.className = "text-[13px] font-medium text-md-error ml-4";
                 }
             });
 
-            // Theme UI Logic
+            // Updated Theme UI Logic to match new Material 3 selection states
             const themeCards = document.querySelectorAll('.theme-card');
             const activeTheme = localStorage.getItem('rcloud_theme') || 'device';
 
             function updateThemeUI(selectedMode) {
                 themeCards.forEach(c => {
                     const isSelected = c.getAttribute('data-theme') === selectedMode;
+                    const icon = c.querySelector('.icon');
+                    const text = c.querySelector('.text');
+                    const check = c.querySelector('.check-icon');
                     
-                    c.className = isSelected 
-                        ? "theme-card flex flex-col items-center justify-center p-6 border border-md-accent bg-[#004a77]/20 rounded-[16px] cursor-pointer transition group"
-                        : "theme-card flex flex-col items-center justify-center p-6 border border-[#444746] rounded-[16px] cursor-pointer hover:bg-md-hover transition group";
-                    
-                    c.querySelector('.icon').className = isSelected
-                        ? "icon material-symbols-rounded filled text-[32px] text-md-accent mb-3"
-                        : "icon material-symbols-rounded text-[32px] text-md-text-muted group-hover:text-md-text mb-3";
-                        
-                    c.querySelector('.text').className = isSelected
-                        ? "text font-medium text-sm text-md-accent"
-                        : "text font-medium text-sm text-md-text-muted group-hover:text-md-text";
+                    if (isSelected) {
+                        c.className = "theme-card relative flex items-center p-4 border-2 border-md-primary bg-md-primary-container/20 rounded-xl cursor-pointer transition group";
+                        icon.className = "icon material-symbols-rounded filled text-[24px] text-md-primary mr-4";
+                        text.className = "text font-google font-medium text-[15px] text-md-on-surface flex-1";
+                        check.classList.remove('opacity-0');
+                    } else {
+                        c.className = "theme-card relative flex items-center p-4 border border-md-outline rounded-xl cursor-pointer hover:bg-white/5 transition group";
+                        icon.className = "icon material-symbols-rounded text-[24px] text-md-on-surface-variant group-hover:text-md-on-surface mr-4";
+                        text.className = "text font-google text-[15px] text-md-on-surface-variant group-hover:text-md-on-surface flex-1";
+                        check.classList.add('opacity-0');
+                    }
                 });
             }
 
             updateThemeUI(activeTheme);
 
-            // Execute Theme switch
+            // Preserved execution logic[span_15](start_span)[span_15](end_span)
             themeCards.forEach(card => {
                 card.addEventListener('click', () => {
                     const selectedTheme = card.getAttribute('data-theme');
                     updateThemeUI(selectedTheme);
                     
-                    // Trigger the theme function safely
                     if (typeof theme !== 'undefined' && typeof theme.set === 'function') {
                         theme.set(selectedTheme);
                     } else {
