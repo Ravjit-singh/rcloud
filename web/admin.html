@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Master Control - R Cloud</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { colors: { 'md-bg': '#131314', 'md-surface': '#1e1f20', 'md-hover': '#282a2c', 'md-text': '#e3e3e3', 'md-text-muted': '#c4c7c5', 'md-accent': '#a8c7fa', 'md-active': '#004a77', 'md-fab': '#c2e7ff', 'md-fab-text': '#001d35' }, fontFamily: { sans: ['Roboto', 'sans-serif'] } } } }
+    </script>
+    <style>
+        body { letter-spacing: 0.01em; overscroll-behavior-y: none; }
+        .material-symbols-rounded { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .material-symbols-rounded.filled { font-variation-settings: 'FILL' 1; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #444746; border-radius: 10px; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body class="bg-md-bg text-md-text font-sans h-screen overflow-hidden flex flex-col selection:bg-md-active selection:text-md-accent relative">
+
+    <div id="adminAuthView" class="fixed inset-0 z-50 bg-md-bg flex items-center justify-center p-4 transition-opacity duration-300">
+        <div class="bg-md-surface p-10 rounded-[28px] w-full max-w-[400px] border border-red-400/30 shadow-2xl">
+            <div class="flex flex-col items-center mb-8">
+                <span class="material-symbols-rounded filled text-[48px] text-red-400 mb-2">admin_panel_settings</span>
+                <h2 class="text-[24px] font-medium text-md-text">Master Control</h2>
+                <p class="text-md-text-muted mt-1 text-sm">Enter the Admin Protocol Key</p>
+            </div>
+            <div class="space-y-4">
+                <input type="password" id="adminPasswordInput" class="w-full bg-md-bg border border-[#444746] rounded-[4px] py-4 px-4 text-md-text focus:outline-none focus:border-red-400 focus:border-2 transition-all text-center tracking-widest" placeholder="••••••••">
+                <p id="adminAuthStatus" class="text-sm font-medium text-red-400 h-4 text-center"></p>
+                <button id="adminLoginBtn" class="w-full bg-red-400/10 text-red-400 border border-red-400/50 hover:bg-red-400 hover:text-black font-medium py-3 px-6 rounded-full transition shadow-sm">Authorize</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminDashboard" class="hidden h-full flex flex-col opacity-0 transition-opacity duration-300">
+        <header class="h-[64px] flex items-center justify-between px-4 shrink-0 border-b border-md-bg/30">
+            <div class="flex items-center space-x-2">
+                <span class="material-symbols-rounded filled text-[32px] text-red-400">admin_panel_settings</span>
+                <span class="text-[20px] font-medium text-md-text">R Cloud Admin</span>
+            </div>
+            <button id="adminLogoutBtn" class="p-2 hover:bg-white/10 rounded-full transition text-md-text-muted flex items-center"><span class="material-symbols-rounded">logout</span></button>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 md:p-8 bg-md-bg relative">
+            <div class="max-w-5xl mx-auto w-full pb-20">
+                <h2 class="text-xl font-medium text-md-text mb-6">User Management</h2>
+                <div class="bg-md-surface border border-[#444746] rounded-[24px] overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#444746] text-md-text-muted text-[13px] uppercase tracking-wider">
+                                    <th class="p-4 font-medium">Username</th>
+                                    <th class="p-4 font-medium">Storage</th>
+                                    <th class="p-4 font-medium">Joined</th>
+                                    <th class="p-4 font-medium text-center">Status</th>
+                                    <th class="p-4 font-medium text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody" class="text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="masterPasswordModal" class="hidden fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-md-surface p-8 rounded-[24px] w-full max-w-[400px] border border-[#444746] shadow-2xl relative">
+            <h3 class="text-xl font-medium text-md-text mb-2">Master Verification Required</h3>
+            <p id="masterModalDesc" class="text-md-text-muted text-sm mb-6">Enter Master Password to proceed.</p>
+            <input type="password" id="masterPasswordInput" class="w-full bg-md-bg border border-[#444746] rounded-[8px] py-3 px-4 text-md-text focus:outline-none focus:border-red-400 focus:border-2 transition-all mb-4">
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeMasterModal()" class="px-5 py-2 text-md-text hover:bg-white/10 rounded-full transition">Cancel</button>
+                <button id="masterConfirmBtn" class="bg-red-400 text-black font-medium px-6 py-2 rounded-full hover:bg-red-500 transition">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-md-hover text-md-text px-6 py-3 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none z-[110] flex items-center border border-[#444746]">
+        <span id="toastIcon" class="material-symbols-rounded mr-3 text-md-accent">info</span>
+        <span id="toastMessage" class="text-sm font-medium"></span>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script>
+        let toastTimer;
+        function showToast(message, icon = 'info', color = 'text-md-accent') {
+            const toast = document.getElementById('toast'); const toastIcon = document.getElementById('toastIcon');
+            document.getElementById('toastMessage').textContent = message; toastIcon.textContent = icon; toastIcon.className = `material-symbols-rounded mr-3 ${color}`;
+            toast.classList.remove('opacity-0', 'translate-y-4'); clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.add('opacity-0', 'translate-y-4'), 3000);
+        }
+
+        function formatSize(b) { if (!b || isNaN(b)) return '0 B'; const k=1024, s=['B','KB','MB','GB'], i=Math.floor(Math.log(b)/Math.log(k)); return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i]; }
+        function formatDate(d) { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+
+        let masterActionCallback = null;
+
+        function openMasterModal(desc, callback) {
+            document.getElementById('masterModalDesc').textContent = desc;
+            document.getElementById('masterPasswordInput').value = '';
+            masterActionCallback = callback;
+            document.getElementById('masterPasswordModal').classList.remove('hidden');
+        }
+
+        function closeMasterModal() {
+            document.getElementById('masterPasswordModal').classList.add('hidden');
+            masterActionCallback = null;
+        }
+
+        document.getElementById('masterConfirmBtn').addEventListener('click', () => {
+            const pass = document.getElementById('masterPasswordInput').value;
+            if(pass && masterActionCallback) masterActionCallback(pass);
+            closeMasterModal();
+        });
+
+        async function loadUsers() {
+            const res = await api.adminGetUsers();
+            if (res.status === 401 || res.status === 403) { document.getElementById('adminAuthView').classList.remove('hidden'); document.getElementById('adminDashboard').classList.add('hidden', 'opacity-0'); return; }
+            
+            document.getElementById('adminAuthView').classList.add('hidden');
+            const dash = document.getElementById('adminDashboard'); dash.classList.remove('hidden'); setTimeout(()=>dash.classList.remove('opacity-0'),50);
+            
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+            res.data.users.forEach(u => {
+                let statusBadge, actionBtns;
+                
+                if (u.is_approved === 0) {
+                    statusBadge = `<span class="px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 rounded-full text-[11px] font-medium tracking-wide">PENDING</span>`;
+                    actionBtns = `<button onclick="approveUser('${u.id}')" class="text-green-400 hover:bg-green-400/10 px-4 py-1.5 rounded-full transition font-medium border border-green-400/30">Approve</button>`;
+                } else if (u.is_frozen === 1) {
+                    statusBadge = `<span class="px-3 py-1 bg-blue-400/10 text-blue-400 border border-blue-400/30 rounded-full text-[11px] font-medium tracking-wide">FROZEN</span><br><span class="text-[10px] text-md-text-muted mt-1 block">Since ${formatDate(u.frozen_at)}</span>`;
+                    actionBtns = `
+                        <button onclick="freezeUser('${u.id}', true)" class="text-blue-400 hover:bg-blue-400/10 px-3 py-1.5 rounded-full transition font-medium mr-2">Unfreeze</button>
+                        <button onclick="deleteUser('${u.id}', '${u.username}')" class="text-red-400 hover:bg-red-400/10 px-3 py-1.5 rounded-full transition font-medium border border-red-400/30"><span class="material-symbols-rounded text-[18px]">delete</span></button>
+                    `;
+                } else {
+                    statusBadge = `<span class="px-3 py-1 bg-green-400/10 text-green-400 border border-green-400/30 rounded-full text-[11px] font-medium tracking-wide">ACTIVE</span>`;
+                    actionBtns = `<button onclick="freezeUser('${u.id}', false)" class="text-md-text hover:bg-white/10 px-4 py-1.5 rounded-full transition font-medium border border-[#444746]">Freeze</button>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr class="border-b border-[#444746] hover:bg-md-hover/50 transition">
+                        <td class="p-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 rounded-full bg-[#004a77] flex items-center justify-center text-md-accent font-medium text-xs">${u.username.charAt(0).toUpperCase()}</div>
+                                <span class="font-medium text-md-text">${u.username}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-md-text-muted">${formatSize(u.storageUsed)}</td>
+                        <td class="p-4 text-md-text-muted">${formatDate(u.created_at)}</td>
+                        <td class="p-4 text-center">${statusBadge}</td>
+                        <td class="p-4 text-right whitespace-nowrap">${actionBtns}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function approveUser(id) {
+            showToast("Approving user...", "hourglass_empty", "text-md-accent");
+            const res = await api.adminApprove(id);
+            if(res.status===200) { showToast("User Approved!", "check_circle", "text-green-400"); loadUsers(); }
+        }
+
+        function freezeUser(id, isCurrentlyFrozen) {
+            openMasterModal(isCurrentlyFrozen ? "Enter Master Password to unfreeze." : "Enter Master Password to freeze. Account will be deleted in 10 days.", async (masterPass) => {
+                showToast("Executing protocol...", "lock", "text-md-accent");
+                const res = await api.adminFreeze(id, masterPass);
+                if(res.status===200) { showToast("Success!", "check_circle", "text-green-400"); loadUsers(); }
+                else showToast("Invalid Master Password", "error", "text-red-400");
+            });
+        }
+
+        function deleteUser(id, username) {
+            openMasterModal(`Type Master Password to instantly wipe all data for ${username}.`, async (masterPass) => {
+                showToast("Wiping user data...", "delete_forever", "text-red-400");
+                const res = await api.adminDelete(id, masterPass);
+                if(res.status===200) { showToast("User Obliterated.", "check_circle", "text-red-400"); loadUsers(); }
+                else showToast("Action Failed", "error", "text-red-400");
+            });
+        }
+
+        document.getElementById('adminLoginBtn').addEventListener('click', async () => {
+            const pass = document.getElementById('adminPasswordInput').value;
+            const res = await api.adminLogin(pass);
+            if (res.status === 200) { document.getElementById('adminPasswordInput').value=''; loadUsers(); }
+            else { document.getElementById('adminAuthStatus').textContent = "Access Denied"; }
+        });
+
+        document.getElementById('adminLogoutBtn').addEventListener('click', async () => {
+            await api.request('/admin/logout', {method:'POST'});
+            window.location.reload();
+        });
+
+        loadUsers();
+    </script>
+</body>
+</html>

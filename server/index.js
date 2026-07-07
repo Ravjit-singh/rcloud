@@ -10,7 +10,12 @@ const crypto = require('crypto');
 const { ZipArchive } = require('archiver');
 const { initDB } = require('./db');
 
-// --- MEDIA PROCESSING ENGINES (Failsafed for Termux) ---
+// --- 🛑 HIGH SECURITY ADMIN CREDENTIALS 🛑 ---
+const ADMIN_PASSWORD = 'admin'; 
+const MASTER_PASSWORD = 'master'; 
+const ADMIN_SECRET = 'rcloud-admin-strict-jwt-2026';
+// ---------------------------------------------
+
 let sharp, ffmpeg;
 try { sharp = require('sharp'); } catch (e) { console.warn("⚠️ Sharp missing. Falling back to native resolution."); }
 try { ffmpeg = require('fluent-ffmpeg'); } catch (e) { console.warn("⚠️ fluent-ffmpeg missing. Video thumbnails disabled."); }
@@ -33,12 +38,32 @@ async function ensureDirExists() {
     try { await fs.access(THUMBS_DIR); } catch (error) { await fs.mkdir(THUMBS_DIR, { recursive: true }); }
 }
 
+// User Authentication & Freeze Verification
 function authenticateToken(req, res, next) {
     const token = req.cookies.auth_token;
     if (!token) return res.status(401).json({ error: "Access denied." });
-    jwt.verify(token, JWT_SECRET, (err, user) => {
+    jwt.verify(token, JWT_SECRET, async (err, user) => {
         if (err) return res.status(403).json({ error: "Invalid token." });
+        
+        // Dynamically check Freeze Status to instantly block active sessions
+        const dbUser = await app.locals.db.get(`SELECT is_frozen FROM users WHERE id = ?`, [user.id]);
+        if (!dbUser) return res.status(404).json({error: "User deleted"});
+
+        if (dbUser.is_frozen === 1 && ['POST', 'PUT', 'DELETE'].includes(req.method) && !req.path.includes('/logout') && !req.path.includes('/download')) {
+            return res.status(403).json({ error: "ACCOUNT_FROZEN" });
+        }
+        
         req.user = user; next();
+    });
+}
+
+// Admin Authentication Middleware
+function authenticateAdmin(req, res, next) {
+    const token = req.cookies.admin_token;
+    if (!token) return res.status(401).json({ error: "Admin access denied." });
+    jwt.verify(token, ADMIN_SECRET, (err, decoded) => {
+        if (err) return res.status(403).json({ error: "Invalid admin token." });
+        next();
     });
 }
 
@@ -59,8 +84,8 @@ app.post('/api/register', async (req, res) => {
     if (!username || !password) return res.status(400).json({ error: "Required" });
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        await app.locals.db.run(`INSERT INTO users (username, password_hash) VALUES (?, ?)`, [username, hashedPassword]);
-        res.json({ success: true });
+        await app.locals.db.run(`INSERT INTO users (username, password_hash, is_approved) VALUES (?, ?, 0)`, [username, hashedPassword]);
+        res.json({ success: true, message: "Account pending approval." });
     } catch (err) { res.status(400).json({ error: "Error" }); }
 });
 
@@ -68,7 +93,10 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const user = await app.locals.db.get(`SELECT * FROM users WHERE username = ?`, [username]);
-        if (!user || !(await bcrypt.compare(password, user.password_hash))) return res.status(400).json({ error: "Invalid" });
+        if (!user || !(await bcrypt.compare(password, user.password_hash))) return res.status(400).json({ error: "Invalid credentials" });
+        
+        if (user.is_approved === 0) return res.status(403).json({ error: "Account pending admin approval." });
+
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
         res.cookie('auth_token', token, { httpOnly: true, secure: false, sameSite: 'strict', maxAge: 86400000 });
         res.json({ success: true, username: user.username });
@@ -88,12 +116,96 @@ app.put('/api/password', authenticateToken, async (req, res) => {
 });
 
 // ==========================================
+//          HIGH SECURITY ADMIN ROUTES
+// ==========================================
+app.post('/api/admin/login', (req, res) => {
+    const { password } = req.body;
+    if (password === ADMIN_PASSWORD) {
+        const token = jwt.sign({ role: 'admin' }, ADMIN_SECRET, { expiresIn: '12h' });
+        res.cookie('admin_token', token, { httpOnly: true, secure: false, sameSite: 'strict', maxAge: 43200000 });
+        res.json({ success: true });
+    } else {
+        res.status(403).json({ error: "Invalid Admin Password" });
+    }
+});
+
+app.post('/api/admin/logout', (req, res) => { res.clearCookie('admin_token'); res.json({ success: true }); });
+
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
+    try {
+        const users = await app.locals.db.all(`SELECT id, username, is_approved, is_frozen, frozen_at, created_at FROM users ORDER BY created_at DESC`);
+        for (let user of users) {
+            const sizeRow = await app.locals.db.get(`SELECT SUM(size) as total FROM files WHERE user_id = ?`, [user.id]);
+            user.storageUsed = sizeRow.total || 0;
+        }
+        res.json({ success: true, users });
+    } catch(e) { res.status(500).json({error: "Failed"}); }
+});
+
+app.put('/api/admin/users/:id/approve', authenticateAdmin, async (req, res) => {
+    try {
+        await app.locals.db.run(`UPDATE users SET is_approved = 1 WHERE id = ?`, [req.params.id]);
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: "Failed"}); }
+});
+
+app.put('/api/admin/users/:id/freeze', authenticateAdmin, async (req, res) => {
+    const { masterPassword } = req.body;
+    if (masterPassword !== MASTER_PASSWORD) return res.status(403).json({ error: "INVALID_MASTER" });
+    try {
+        const user = await app.locals.db.get(`SELECT is_frozen FROM users WHERE id = ?`, [req.params.id]);
+        if (user.is_frozen === 1) {
+            await app.locals.db.run(`UPDATE users SET is_frozen = 0, frozen_at = NULL WHERE id = ?`, [req.params.id]); // Unfreeze
+        } else {
+            await app.locals.db.run(`UPDATE users SET is_frozen = 1, frozen_at = CURRENT_TIMESTAMP WHERE id = ?`, [req.params.id]); // Freeze
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: "Failed"}); }
+});
+
+app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
+    const { masterPassword } = req.body;
+    if (masterPassword !== MASTER_PASSWORD) return res.status(403).json({ error: "INVALID_MASTER" });
+    try {
+        await destroyUser(req.params.id);
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: "Failed"}); }
+});
+
+// Master Physical Destruction Protocol
+async function destroyUser(userId) {
+    const files = await app.locals.db.all(`SELECT stored_name FROM files WHERE user_id = ?`, [userId]);
+    for (let f of files) {
+        try { await fs.unlink(path.join(FILES_DIR, f.stored_name)); } catch(e){}
+        try { await fs.unlink(path.join(THUMBS_DIR, f.stored_name + '.webp')); } catch(e){}
+        try { await fs.unlink(path.join(THUMBS_DIR, f.stored_name + '.jpg')); } catch(e){}
+    }
+    await app.locals.db.run(`DELETE FROM users WHERE id = ?`, [userId]); // Cascade handles folders & file rows
+}
+
+// The Death Timer: Executes every hour to purge users frozen for > 10 days
+async function cleanupFrozenUsers() {
+    try {
+        const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').replace('Z', '');
+        const doomedUsers = await app.locals.db.all(`SELECT id, username FROM users WHERE is_frozen = 1 AND frozen_at <= ?`, [tenDaysAgo]);
+        for (let u of doomedUsers) {
+            console.warn(`💀 Auto-destroying frozen account: ${u.username} (ID: ${u.id})`);
+            await destroyUser(u.id);
+        }
+    } catch(e) { console.error("Cleanup error", e); }
+}
+setInterval(cleanupFrozenUsers, 1000 * 60 * 60);
+
+// ==========================================
 //              DRIVE ENGINE
 // ==========================================
 app.get(['/api/drive', '/api/drive/:folderId'], authenticateToken, async (req, res) => {
     const folderId = req.params.folderId || null;
     const view = req.query.view || 'home';
     try {
+        const dbUser = await app.locals.db.get(`SELECT is_frozen FROM users WHERE id = ?`, [req.user.id]);
+        const isFrozen = dbUser.is_frozen === 1;
+
         let folders, files;
         if (view === 'trash') {
             folders = await app.locals.db.all(`SELECT id, name, is_public, share_id, is_starred, is_trash, created_at as date FROM folders WHERE user_id = ? AND is_trash = 1`, [req.user.id]);
@@ -108,7 +220,7 @@ app.get(['/api/drive', '/api/drive/:folderId'], authenticateToken, async (req, r
             folders = await app.locals.db.all(`SELECT id, name, is_public, share_id, is_starred, is_trash, created_at as date FROM folders WHERE user_id = ? AND parent_id ${folderId ? '= ?' : 'IS NULL'} AND is_trash = 0`, folderId ? [req.user.id, folderId] : [req.user.id]);
             files = await app.locals.db.all(`SELECT id, original_name as name, size, is_public, share_id, is_starred, is_trash, upload_date as date FROM files WHERE user_id = ? AND folder_id ${folderId ? '= ?' : 'IS NULL'} AND is_trash = 0`, folderId ? [req.user.id, folderId] : [req.user.id]);
         }
-        res.json({ success: true, folders, files, username: req.user.username });
+        res.json({ success: true, folders, files, username: req.user.username, isFrozen });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
@@ -236,11 +348,11 @@ app.post('/api/download/zip', authenticateToken, async (req, res) => {
     archive.pipe(res);
 
     async function addFolderToArchive(folderId, currentPath) {
-        const files = await app.locals.db.all(`SELECT * FROM files WHERE folder_id = ? AND user_id = ?`, [folderId, req.user.id]);
+        const files = await app.locals.db.all(`SELECT * FROM files WHERE folder_id = ? AND user_id = ? AND is_trash = 0`, [folderId, req.user.id]);
         for (let f of files) {
             try { await fs.access(path.join(FILES_DIR, f.stored_name)); archive.file(path.join(FILES_DIR, f.stored_name), { name: (currentPath ? currentPath + '/' : '') + f.original_name }); } catch(e) {}
         }
-        const subfolders = await app.locals.db.all(`SELECT * FROM folders WHERE parent_id = ? AND user_id = ?`, [folderId, req.user.id]);
+        const subfolders = await app.locals.db.all(`SELECT * FROM folders WHERE parent_id = ? AND user_id = ? AND is_trash = 0`, [folderId, req.user.id]);
         for (let sub of subfolders) {
             const safeName = sub.name.replace(/[^a-zA-Z0-9-_ \.]/g, '_');
             const newPath = (currentPath ? currentPath + '/' : '') + safeName;
@@ -296,7 +408,7 @@ app.post('/api/copy', authenticateToken, async (req, res) => {
             } else if (item.type === 'folder') { await copyFolder(item.id, targetFolder); }
         }
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: "Failed" }); }
+    } catch (err) { res.status(500).json({ error: "Failed to copy" }); }
 });
 
 app.put('/api/move', authenticateToken, async (req, res) => {
@@ -404,7 +516,6 @@ app.get('/share/file/:share_id', async (req, res) => {
     } catch (err) { res.status(500).send("Server error"); }
 });
 
-// BULLETPROOF PUBLIC FOLDER VIEWER
 app.get('/share/folder/:share_id', async (req, res) => {
     try {
         const folder = await app.locals.db.get(`SELECT id, name, is_public FROM folders WHERE share_id = ?`, [req.params.share_id]);
@@ -418,155 +529,30 @@ app.get('/share/folder/:share_id', async (req, res) => {
         <script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0" /><style> .material-symbols-rounded { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; } .material-symbols-rounded.filled { font-variation-settings: 'FILL' 1; } </style>
         </head><body class="bg-[#131314] text-[#e3e3e3] p-4 md:p-8 font-sans h-screen flex flex-col"><div class="max-w-6xl mx-auto w-full flex-1 flex flex-col"><div class="flex flex-col md:flex-row md:items-center justify-between mb-6"><div class="flex items-center mb-4 md:mb-0"><button onclick="history.back()" class="p-2 mr-2 rounded-full hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">arrow_back</span></button><span class="material-symbols-rounded filled text-[#a8c7fa] text-3xl mr-3">folder_shared</span><h1 class="text-2xl md:text-3xl font-medium truncate">${folder.name}</h1></div><div class="flex items-center space-x-2"><a href="/share/download/zip/${req.params.share_id}" class="bg-[#a8c7fa] text-[#001d35] font-medium px-4 py-2 rounded-full hover:bg-[#c2e7ff] transition flex items-center shadow-sm"><span class="material-symbols-rounded mr-2 text-[20px]">archive</span> Download All</a><div class="relative"><button id="pubSortBtn" onclick="document.getElementById('pubSortMenu').classList.toggle('hidden')" class="p-2 rounded-full text-[#c4c7c5] hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">sort</span></button><div id="pubSortMenu" class="hidden absolute top-12 right-0 bg-[#1e1f20] border border-[#444746] rounded-[12px] shadow-2xl py-2 w-40 z-50"><button onclick="setSort('name')" class="w-full text-left px-4 py-2 text-[14px] text-[#e3e3e3] hover:bg-[#282a2c]">Name</button><button onclick="setSort('date')" class="w-full text-left px-4 py-2 text-[14px] text-[#e3e3e3] hover:bg-[#282a2c]">Date</button><button onclick="setSort('size')" class="w-full text-left px-4 py-2 text-[14px] text-[#e3e3e3] hover:bg-[#282a2c]">Size</button></div></div><button id="pubViewBtn" onclick="toggleView()" class="p-2 rounded-full text-[#c4c7c5] hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded" id="pubViewIcon">view_list</span></button></div></div><div class="flex-1 overflow-y-auto pb-10" id="publicContainer"></div></div><div id="previewModal" class="hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col transition-opacity duration-300 opacity-0"><div class="flex items-center justify-between p-4 text-[#e3e3e3] bg-gradient-to-b from-black/80 to-transparent absolute top-0 w-full z-10"><div class="flex items-center space-x-4"><button onclick="closePreview()" class="p-2 rounded-full hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">arrow_back</span></button><span id="previewFilename" class="font-medium text-[16px] truncate max-w-[200px] md:max-w-md"></span></div><div class="flex items-center space-x-2"><a id="downloadPreviewBtn" class="p-2 rounded-full hover:bg-white/10 transition flex items-center justify-center" title="Download" download><span class="material-symbols-rounded">download</span></a></div></div><div id="previewContent" class="flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0"></div></div>
             <script>
-                let rawFolders = [];
-                let rawFiles = [];
-                
-                try {
-                    rawFolders = ${JSON.stringify(folders)} || [];
-                    rawFiles = ${JSON.stringify(files)} || [];
-                } catch(e) { console.error("Data parse error", e); }
-
-                let viewMode = 'grid';
-                let sortBy = 'name';
-                let sortOrder = 'asc';
-
-                try {
-                    viewMode = localStorage.getItem('rcloud_pub_view') || 'grid';
-                    sortBy = localStorage.getItem('rcloud_pub_sort') || 'name';
-                    sortOrder = localStorage.getItem('rcloud_pub_sortOrder') || 'asc';
-                } catch(e) {}
-
-                document.addEventListener('DOMContentLoaded', () => {
-                    const icon = document.getElementById('pubViewIcon');
-                    if (icon) icon.textContent = viewMode === 'grid' ? 'view_list' : 'grid_view';
-                    render();
-                });
-
-                function formatSize(b) { 
-                    if (!b || isNaN(b)) return '--'; 
-                    const k=1024, s=['B','KB','MB','GB'], i=Math.floor(Math.log(b)/Math.log(k)); 
-                    return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i]; 
-                }
-
-                function formatDate(d) { 
-                    if (!d) return '--'; 
-                    return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); 
-                }
-                
-                function getFileIcon(name) { 
-                    if (!name) return { icon: 'description', color: 'text-blue-400' };
-                    const ext = String(name).split('.').pop().toLowerCase(); 
-                    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return { icon: 'image', color: 'text-[#a8c7fa]' }; 
-                    if (['pdf'].includes(ext)) return { icon: 'picture_as_pdf', color: 'text-red-400' }; 
-                    if (['mp4', 'mkv', 'avi', 'mov'].includes(ext)) return { icon: 'movie', color: 'text-purple-400' }; 
-                    if (['zip', 'rar', 'apk'].includes(ext)) return { icon: 'folder_zip', color: 'text-yellow-500' }; 
-                    return { icon: 'description', color: 'text-blue-400' }; 
-                }
-
-                function toggleView() { 
-                    viewMode = viewMode === 'grid' ? 'list' : 'grid'; 
-                    try { localStorage.setItem('rcloud_pub_view', viewMode); } catch(e){}
-                    const icon = document.getElementById('pubViewIcon');
-                    if (icon) icon.textContent = viewMode === 'grid' ? 'view_list' : 'grid_view'; 
-                    render(); 
-                }
-
-                function setSort(by) { 
-                    if (sortBy === by) sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'; 
-                    else { sortBy = by; sortOrder = 'asc'; } 
-                    try {
-                        localStorage.setItem('rcloud_pub_sort', sortBy); 
-                        localStorage.setItem('rcloud_pub_sortOrder', sortOrder); 
-                    } catch(e){}
-                    const menu = document.getElementById('pubSortMenu');
-                    if (menu) menu.classList.add('hidden'); 
-                    render(); 
-                }
-
-                function sortData(arr) { 
-                    return arr.sort((a, b) => { 
-                        let vA, vB; 
-                        if (sortBy === 'name') { vA = String(a.name || '').toLowerCase(); vB = String(b.name || '').toLowerCase(); } 
-                        else if (sortBy === 'date') { vA = new Date(a.date).getTime()||0; vB = new Date(b.date).getTime()||0; } 
-                        else if (sortBy === 'size') { vA = Number(a.size)||0; vB = Number(b.size)||0; } 
-                        if (vA < vB) return sortOrder === 'asc' ? -1 : 1; 
-                        if (vA > vB) return sortOrder === 'asc' ? 1 : -1; 
-                        return 0; 
-                    }); 
-                }
-
+                let rawFolders = []; let rawFiles = [];
+                try { rawFolders = ${JSON.stringify(folders)} || []; rawFiles = ${JSON.stringify(files)} || []; } catch(e) { }
+                let viewMode = 'grid'; let sortBy = 'name'; let sortOrder = 'asc';
+                try { viewMode = localStorage.getItem('rcloud_pub_view') || 'grid'; sortBy = localStorage.getItem('rcloud_pub_sort') || 'name'; sortOrder = localStorage.getItem('rcloud_pub_sortOrder') || 'asc'; } catch(e) {}
+                document.addEventListener('DOMContentLoaded', () => { const icon = document.getElementById('pubViewIcon'); if (icon) icon.textContent = viewMode === 'grid' ? 'view_list' : 'grid_view'; render(); });
+                function formatSize(b) { if (!b || isNaN(b)) return '--'; const k=1024, s=['B','KB','MB','GB'], i=Math.floor(Math.log(b)/Math.log(k)); return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i]; }
+                function formatDate(d) { if (!d) return '--'; return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+                function getFileIcon(name) { if (!name) return { icon: 'description', color: 'text-blue-400' }; const ext = String(name).split('.').pop().toLowerCase(); if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return { icon: 'image', color: 'text-[#a8c7fa]' }; if (['pdf'].includes(ext)) return { icon: 'picture_as_pdf', color: 'text-red-400' }; if (['mp4', 'mkv', 'avi', 'mov'].includes(ext)) return { icon: 'movie', color: 'text-purple-400' }; if (['zip', 'rar', 'apk'].includes(ext)) return { icon: 'folder_zip', color: 'text-yellow-500' }; return { icon: 'description', color: 'text-blue-400' }; }
+                function toggleView() { viewMode = viewMode === 'grid' ? 'list' : 'grid'; try { localStorage.setItem('rcloud_pub_view', viewMode); } catch(e){} const icon = document.getElementById('pubViewIcon'); if (icon) icon.textContent = viewMode === 'grid' ? 'view_list' : 'grid_view'; render(); }
+                function setSort(by) { if (sortBy === by) sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'; else { sortBy = by; sortOrder = 'asc'; } try { localStorage.setItem('rcloud_pub_sort', sortBy); localStorage.setItem('rcloud_pub_sortOrder', sortOrder); } catch(e){} const menu = document.getElementById('pubSortMenu'); if (menu) menu.classList.add('hidden'); render(); }
+                function sortData(arr) { return arr.sort((a, b) => { let vA, vB; if (sortBy === 'name') { vA = String(a.name || '').toLowerCase(); vB = String(b.name || '').toLowerCase(); } else if (sortBy === 'date') { vA = new Date(a.date).getTime()||0; vB = new Date(b.date).getTime()||0; } else if (sortBy === 'size') { vA = Number(a.size)||0; vB = Number(b.size)||0; } if (vA < vB) return sortOrder === 'asc' ? -1 : 1; if (vA > vB) return sortOrder === 'asc' ? 1 : -1; return 0; }); }
                 function render() {
                     try {
-                        const container = document.getElementById('publicContainer');
-                        if (!container) return;
-
-                        const sortedFolders = sortData([...rawFolders]); 
-                        const sortedFiles = sortData([...rawFiles]);
-                        
-                        if (sortedFolders.length === 0 && sortedFiles.length === 0) { 
-                            container.innerHTML = '<div class="flex flex-col items-center justify-center py-24 text-[#c4c7c5]"><span class="material-symbols-rounded text-[64px] mb-4 opacity-50">folder_open</span><p class="text-[16px] font-medium">This folder is empty</p></div>'; 
-                            return; 
-                        }
-
-                        let html = ''; 
-                        const isList = viewMode === 'list'; 
-                        const gridClass = isList ? 'flex flex-col mb-8' : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-8'; 
-                        const fileGridClass = isList ? 'flex flex-col' : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4';
-
-                        if (sortedFolders.length > 0) { 
-                            html += '<h3 class="text-[14px] font-medium text-[#e3e3e3] mb-3 mt-4">Folders</h3><div class="' + gridClass + '">'; 
-                            sortedFolders.forEach(f => { 
-                                if (isList) { 
-                                    html += \`<a href="/share/folder/\${f.id}" class="flex items-center justify-between p-3 border-b border-[#444746] bg-[#1e1f20] hover:bg-[#282a2c] transition group"><div class="flex items-center flex-1 overflow-hidden"><span class="material-symbols-rounded filled text-[#c4c7c5] text-[24px] mr-4">folder</span><span class="text-[14px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><div class="w-32 hidden md:block text-[#c4c7c5] text-[13px]">\${formatDate(f.date)}</div><div class="w-20 hidden md:block text-[#c4c7c5] text-[13px]">--</div></a>\`; 
-                                } else { 
-                                    html += \`<a href="/share/folder/\${f.id}" class="flex items-center bg-[#1e1f20] hover:bg-[#282a2c] rounded-[16px] py-3.5 px-4 transition border border-transparent hover:border-[#444746] group"><span class="material-symbols-rounded filled text-[#c4c7c5] text-[28px] mr-4">folder</span><div class="flex flex-col overflow-hidden"><span class="text-[15px] font-medium text-[#e3e3e3] truncate">\${f.name}</span><span class="text-[11px] text-[#c4c7c5] mt-0.5">\${formatDate(f.date)}</span></div></a>\`; 
-                                } 
-                            }); 
-                            html += '</div>'; 
-                        }
-
-                        if (sortedFiles.length > 0) { 
-                            html += '<h3 class="text-[14px] font-medium text-[#e3e3e3] mb-3 mt-4">Files</h3><div class="' + fileGridClass + '">'; 
-                            sortedFiles.forEach(f => { 
-                                const ft = getFileIcon(f.name); 
-                                const safeName = String(f.name).replace(/'/g, "\\\\'");
-                                if (isList) { 
-                                    html += \`<div onclick="openPreview('\${f.id}', '\${safeName}')" class="flex items-center justify-between p-3 border-b border-[#444746] bg-[#1e1f20] hover:bg-[#282a2c] transition cursor-pointer group"><div class="flex items-center flex-1 overflow-hidden"><span class="material-symbols-rounded filled \${ft.color} text-[24px] mr-4">\${ft.icon}</span><span class="text-[14px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><div class="w-32 hidden md:block text-[#c4c7c5] text-[13px]">\${formatDate(f.date)}</div><div class="w-20 hidden md:block text-[#c4c7c5] text-[13px]">\${formatSize(f.size)}</div><a href="/share/file/\${f.id}" download="\${f.name}" onclick="event.stopPropagation()" class="p-2 rounded-full hover:bg-white/10 transition ml-4"><span class="material-symbols-rounded text-[#c4c7c5]">download</span></a></div>\`; 
-                                } else { 
-                                    html += \`<div onclick="openPreview('\${f.id}', '\${safeName}')" class="flex flex-col bg-[#1e1f20] hover:bg-[#282a2c] border border-transparent hover:border-[#444746] rounded-[12px] overflow-hidden cursor-pointer transition group"><div class="h-32 bg-[#131314] m-1.5 rounded-[8px] flex items-center justify-center"><span class="material-symbols-rounded text-[48px] \${ft.color}">\${ft.icon}</span></div><div class="px-3 pb-3 pt-1 flex justify-between items-center"><div class="flex flex-col overflow-hidden w-full"><div class="flex items-center mb-0.5"><span class="material-symbols-rounded filled \${ft.color} text-[16px] mr-2 shrink-0">\${ft.icon}</span><span class="text-[13px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><span class="text-[11px] text-[#c4c7c5]">\${formatSize(f.size)} • \${formatDate(f.date)}</span></div><a href="/share/file/\${f.id}" download="\${f.name}" onclick="event.stopPropagation()" class="p-1 rounded-full hover:bg-white/10 transition ml-2"><span class="material-symbols-rounded text-[#c4c7c5]">download</span></a></div></div>\`; 
-                                } 
-                            }); 
-                            html += '</div>'; 
-                        }
+                        const container = document.getElementById('publicContainer'); if (!container) return;
+                        const sortedFolders = sortData([...rawFolders]); const sortedFiles = sortData([...rawFiles]);
+                        if (sortedFolders.length === 0 && sortedFiles.length === 0) { container.innerHTML = '<div class="flex flex-col items-center justify-center py-24 text-[#c4c7c5]"><span class="material-symbols-rounded text-[64px] mb-4 opacity-50">folder_open</span><p class="text-[16px] font-medium">This folder is empty</p></div>'; return; }
+                        let html = ''; const isList = viewMode === 'list'; const gridClass = isList ? 'flex flex-col mb-8' : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-8'; const fileGridClass = isList ? 'flex flex-col' : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4';
+                        if (sortedFolders.length > 0) { html += '<h3 class="text-[14px] font-medium text-[#e3e3e3] mb-3 mt-4">Folders</h3><div class="' + gridClass + '">'; sortedFolders.forEach(f => { if (isList) { html += \`<a href="/share/folder/\${f.id}" class="flex items-center justify-between p-3 border-b border-[#444746] bg-[#1e1f20] hover:bg-[#282a2c] transition group"><div class="flex items-center flex-1 overflow-hidden"><span class="material-symbols-rounded filled text-[#c4c7c5] text-[24px] mr-4">folder</span><span class="text-[14px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><div class="w-32 hidden md:block text-[#c4c7c5] text-[13px]">\${formatDate(f.date)}</div><div class="w-20 hidden md:block text-[#c4c7c5] text-[13px]">--</div></a>\`; } else { html += \`<a href="/share/folder/\${f.id}" class="flex items-center bg-[#1e1f20] hover:bg-[#282a2c] rounded-[16px] py-3.5 px-4 transition border border-transparent hover:border-[#444746] group"><span class="material-symbols-rounded filled text-[#c4c7c5] text-[28px] mr-4">folder</span><div class="flex flex-col overflow-hidden"><span class="text-[15px] font-medium text-[#e3e3e3] truncate">\${f.name}</span><span class="text-[11px] text-[#c4c7c5] mt-0.5">\${formatDate(f.date)}</span></div></a>\`; } }); html += '</div>'; }
+                        if (sortedFiles.length > 0) { html += '<h3 class="text-[14px] font-medium text-[#e3e3e3] mb-3 mt-4">Files</h3><div class="' + fileGridClass + '">'; sortedFiles.forEach(f => { const ft = getFileIcon(f.name); const safeName = String(f.name).replace(/'/g, "\\\\'"); if (isList) { html += \`<div onclick="openPreview('\${f.id}', '\${safeName}')" class="flex items-center justify-between p-3 border-b border-[#444746] bg-[#1e1f20] hover:bg-[#282a2c] transition cursor-pointer group"><div class="flex items-center flex-1 overflow-hidden"><span class="material-symbols-rounded filled \${ft.color} text-[24px] mr-4">\${ft.icon}</span><span class="text-[14px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><div class="w-32 hidden md:block text-[#c4c7c5] text-[13px]">\${formatDate(f.date)}</div><div class="w-20 hidden md:block text-[#c4c7c5] text-[13px]">\${formatSize(f.size)}</div><a href="/share/file/\${f.id}" download="\${f.name}" onclick="event.stopPropagation()" class="p-2 rounded-full hover:bg-white/10 transition ml-4"><span class="material-symbols-rounded text-[#c4c7c5]">download</span></a></div>\`; } else { html += \`<div onclick="openPreview('\${f.id}', '\${safeName}')" class="flex flex-col bg-[#1e1f20] hover:bg-[#282a2c] border border-transparent hover:border-[#444746] rounded-[12px] overflow-hidden cursor-pointer transition group"><div class="h-32 bg-[#131314] m-1.5 rounded-[8px] flex items-center justify-center"><span class="material-symbols-rounded text-[48px] \${ft.color}">\${ft.icon}</span></div><div class="px-3 pb-3 pt-1 flex justify-between items-center"><div class="flex flex-col overflow-hidden w-full"><div class="flex items-center mb-0.5"><span class="material-symbols-rounded filled \${ft.color} text-[16px] mr-2 shrink-0">\${ft.icon}</span><span class="text-[13px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><span class="text-[11px] text-[#c4c7c5]">\${formatSize(f.size)} • \${formatDate(f.date)}</span></div><a href="/share/file/\${f.id}" download="\${f.name}" onclick="event.stopPropagation()" class="p-1 rounded-full hover:bg-white/10 transition ml-2"><span class="material-symbols-rounded text-[#c4c7c5]">download</span></a></div></div>\`; } }); html += '</div>'; }
                         container.innerHTML = html;
-                    } catch (err) {
-                        console.error('Render crash blocked:', err);
-                    }
+                    } catch (err) { }
                 }
-
-                function openPreview(id, name) { 
-                    try {
-                        const ext = String(name).split('.').pop().toLowerCase(); 
-                        const modal = document.getElementById('previewModal'); 
-                        const content = document.getElementById('previewContent'); 
-                        const downloadBtn = document.getElementById('downloadPreviewBtn'); 
-                        
-                        document.getElementById('previewFilename').textContent = name; 
-                        downloadBtn.href = '/share/file/' + id; 
-                        
-                        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { content.innerHTML = '<img src="/share/file/' + id + '" class="max-w-full max-h-full object-contain drop-shadow-2xl">'; } 
-                        else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { content.innerHTML = '<video src="/share/file/' + id + '" controls autoplay class="max-w-full max-h-full object-contain drop-shadow-2xl outline-none rounded-md bg-black"></video>'; } 
-                        else { content.innerHTML = \`<div class="flex flex-col items-center text-[#c4c7c5]"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/share/file/\${id}" class="px-8 py-3 bg-[#004a77] text-[#a8c7fa] rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center" download><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>\`; } 
-                        
-                        modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 50); 
-                    } catch(e) {}
-                }
-                
-                function closePreview() { 
-                    const modal = document.getElementById('previewModal'); 
-                    modal.classList.add('opacity-0'); 
-                    setTimeout(() => { modal.classList.add('hidden'); document.getElementById('previewContent').innerHTML = ''; }, 300); 
-                }
+                function openPreview(id, name) { try { const ext = String(name).split('.').pop().toLowerCase(); const modal = document.getElementById('previewModal'); const content = document.getElementById('previewContent'); const downloadBtn = document.getElementById('downloadPreviewBtn'); document.getElementById('previewFilename').textContent = name; downloadBtn.href = '/share/file/' + id; if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { content.innerHTML = '<img src="/share/file/' + id + '" class="max-w-full max-h-full object-contain drop-shadow-2xl">'; } else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { content.innerHTML = '<video src="/share/file/' + id + '" controls autoplay class="max-w-full max-h-full object-contain drop-shadow-2xl outline-none rounded-md bg-black"></video>'; } else { content.innerHTML = \`<div class="flex flex-col items-center text-[#c4c7c5]"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/share/file/\${id}" class="px-8 py-3 bg-[#004a77] text-[#a8c7fa] rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center" download><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>\`; } modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 50); } catch(e) {} }
+                function closePreview() { const modal = document.getElementById('previewModal'); modal.classList.add('opacity-0'); setTimeout(() => { modal.classList.add('hidden'); document.getElementById('previewContent').innerHTML = ''; }, 300); }
             </script>
         </body></html>
         `;

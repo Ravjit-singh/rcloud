@@ -6,6 +6,11 @@ const api = {
             options.credentials = 'same-origin'; 
             const res = await fetch(`${API_URL}${endpoint}`, options);
             const data = await res.json();
+            
+            // Intercept frozen errors safely
+            if (res.status === 403 && data.error === "ACCOUNT_FROZEN") {
+                if(typeof ui !== 'undefined') ui.showToast("Account frozen. Read-only mode.", "ac_unit", "text-blue-400");
+            }
             return { status: res.status, data };
         } catch (err) { return { status: 500, data: { error: "Network error" } }; }
     },
@@ -14,7 +19,6 @@ const api = {
     async login(u, p) { return this.request('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) }); },
     async logout() { return this.request('/logout', { method: 'POST' }); },
     
-    // UPDATED: Dynamically pushes the View State to backend
     async getDrive(folderId = null) { 
         const viewQuery = state.currentView !== 'home' ? `?view=${state.currentView}` : '';
         const endpoint = folderId ? `/drive/${folderId}${viewQuery}` : `/drive${viewQuery}`;
@@ -26,7 +30,6 @@ const api = {
     async deleteFolder(id) { return this.request(`/folders/${id}`, { method: 'DELETE' }); },
     async toggleShare(id, type, isPublic) { return this.request(`/share/${type}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPublic }) }); },
     
-    // NEW: Star & Trash Engines
     async toggleTrash(id, type, isTrash) { return this.request(`/trash/${type}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isTrash }) }); },
     async toggleStar(id, type, isStarred) { return this.request(`/star/${type}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isStarred }) }); },
     async emptyTrash() { return this.request('/trash/empty', { method: 'DELETE' }); },
@@ -48,5 +51,12 @@ const api = {
             window.URL.revokeObjectURL(url);
             return true;
         } catch (err) { return false; }
-    }
+    },
+
+    // --- NEW: ADMIN ENDPOINTS ---
+    async adminLogin(password) { return this.request('/admin/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password}) }); },
+    async adminGetUsers() { return this.request('/admin/users'); },
+    async adminApprove(id) { return this.request(`/admin/users/${id}/approve`, { method: 'PUT' }); },
+    async adminFreeze(id, masterPassword) { return this.request(`/admin/users/${id}/freeze`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({masterPassword}) }); },
+    async adminDelete(id, masterPassword) { return this.request(`/admin/users/${id}`, { method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({masterPassword}) }); }
 };

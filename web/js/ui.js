@@ -37,7 +37,6 @@ const ui = {
         return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     },
 
-    // NEW: Handles clicking Bottom Nav / Sidebar Navigation!
     switchView(view) {
         state.currentView = view;
         state.currentFolderId = null; 
@@ -57,8 +56,15 @@ const ui = {
 
         const newBtn = document.getElementById('newBtn');
         const mobileNewBtn = document.getElementById('mobileNewBtn');
-        if (view === 'home') { newBtn.classList.remove('hidden'); mobileNewBtn.classList.remove('hidden'); } 
-        else { newBtn.classList.add('hidden'); mobileNewBtn.classList.add('hidden'); }
+        
+        // Hide create buttons if not home, OR if user is frozen!
+        if (view === 'home' && !state.isFrozen) { 
+            if(newBtn) newBtn.classList.remove('hidden'); 
+            if(mobileNewBtn) mobileNewBtn.classList.remove('hidden'); 
+        } else { 
+            if(newBtn) newBtn.classList.add('hidden'); 
+            if(mobileNewBtn) mobileNewBtn.classList.add('hidden'); 
+        }
 
         this.loadDrive(true);
     },
@@ -75,7 +81,7 @@ const ui = {
             container.innerHTML = `
                 <div class="flex items-center justify-between w-full">
                     <button class="hover:bg-md-hover px-3 py-1.5 -ml-3 rounded-[8px] transition flex items-center text-red-400 font-medium"><span class="material-symbols-rounded filled mr-2">delete</span> Trash</button>
-                    <button onclick="ui.emptyTrash()" class="text-sm font-medium text-red-400 bg-red-400/10 hover:bg-red-400 hover:text-black px-4 py-1.5 rounded-full transition border border-red-400/50 shadow-sm">Empty Trash</button>
+                    ${state.isFrozen ? '' : '<button onclick="ui.emptyTrash()" class="text-sm font-medium text-red-400 bg-red-400/10 hover:bg-red-400 hover:text-black px-4 py-1.5 rounded-full transition border border-red-400/50 shadow-sm">Empty Trash</button>'}
                 </div>
             `;
         } else {
@@ -121,7 +127,6 @@ const ui = {
         } else { toolbar.classList.add('hidden'); }
     },
 
-    // NEW: Contextual Bulk Trash/Delete
     async bulkDelete() {
         if (state.selected.size === 0) return;
         const isTrashView = state.currentView === 'trash';
@@ -169,7 +174,6 @@ const ui = {
         this.loadDrive(true);
     },
 
-    // NEW: Updates Menu dynamically depending on Star/Trash statuses
     openItemMenu(e, id, type, name, isPublic = false, shareId, isStarred = false, isTrash = false) {
         e.stopPropagation();
         state.activeMenuTarget = { id, type, name, isPublic, shareId, isStarred, isTrash };
@@ -187,11 +191,20 @@ const ui = {
         if (isStarred) { starIcon.classList.add('filled', 'text-yellow-500'); starText.textContent = "Unstar"; } 
         else { starIcon.classList.remove('filled', 'text-yellow-500'); starText.textContent = "Add to Starred"; }
 
+        const trashToggleBtn = document.getElementById('menuItemToggleTrash');
         const trashIcon = document.getElementById('menuItemToggleTrashIcon');
         const trashText = document.getElementById('menuItemToggleTrashText');
         const permDeleteBtn = document.getElementById('menuItemPermanentDelete');
-        if (isTrash) { trashIcon.textContent = 'restore_from_trash'; trashText.textContent = 'Restore'; permDeleteBtn.classList.remove('hidden'); } 
-        else { trashIcon.textContent = 'delete'; trashText.textContent = 'Move to Trash'; permDeleteBtn.classList.add('hidden'); }
+        
+        // Hide delete actions entirely if frozen!
+        if (state.isFrozen) {
+            trashToggleBtn.classList.add('hidden');
+            permDeleteBtn.classList.add('hidden');
+        } else {
+            trashToggleBtn.classList.remove('hidden');
+            if (isTrash) { trashIcon.textContent = 'restore_from_trash'; trashText.textContent = 'Restore'; permDeleteBtn.classList.remove('hidden'); } 
+            else { trashIcon.textContent = 'delete'; trashText.textContent = 'Move to Trash'; permDeleteBtn.classList.add('hidden'); }
+        }
         
         const rect = e.currentTarget.getBoundingClientRect();
         menu.style.top = `${rect.bottom + window.scrollY + 5}px`;
@@ -204,7 +217,18 @@ const ui = {
             const response = await api.getDrive(state.currentFolderId);
             if (response.status === 401 || response.status === 403) return auth.showAuth();
             if (response.status !== 200) return this.showToast("Database Error", "error", "text-red-400");
+            
+            // Set and enforce frozen state!
+            state.isFrozen = response.data.isFrozen;
+            if (state.isFrozen) {
+                const newBtn = document.getElementById('newBtn'); if(newBtn) newBtn.classList.add('hidden');
+                const mobBtn = document.getElementById('mobileNewBtn'); if(mobBtn) mobBtn.classList.add('hidden');
+                const dltBtn = document.getElementById('bulkDeleteBtn'); if(dltBtn) dltBtn.classList.add('hidden');
+            }
+
             if (!auth.view.classList.contains('hidden')) auth.showDashboard(response.data.username, false);
+            if (state.isFrozen) this.showToast("Account frozen. Read-only mode.", "ac_unit", "text-blue-400");
+
             state.currentData = { folders: response.data.folders, files: response.data.files };
         }
         this.renderBreadcrumbs();
@@ -370,7 +394,6 @@ const ui = {
                         </div>
                     `;
                 } else {
-                    // NEW: Optimized Server Thumbnails for Grid View!
                     let thumbnailHTML = `<span class="material-symbols-rounded text-[48px] ${fileType.color}">${fileType.icon}</span>`;
                     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) {
                         thumbnailHTML = `<img src="/api/thumbnail/${file.id}" loading="lazy" class="w-full h-full object-cover rounded-[8px]">`;
