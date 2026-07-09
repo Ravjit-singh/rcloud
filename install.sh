@@ -1,17 +1,69 @@
 #!/bin/bash
 
 echo "========================================="
-echo "☁️  Welcome to the R Cloud Installer ☁️"
+echo "☁️  Welcome to the Universal R Cloud Installer ☁️"
 echo "========================================="
 echo ""
 
-echo "[1/4] Updating system packages..."
-pkg update -y && pkg upgrade -y
+# 1. Detect Operating System and Package Manager
+OS="$(uname -s)"
+echo "Detecting operating system: $OS"
+
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
+    # Termux (Android Native)
+    echo "Environment: Termux (Android)"
+    echo "[1/4] Updating and installing dependencies..."
+    pkg update -y && pkg upgrade -y
+    pkg install -y git nodejs ffmpeg python make clang
+
+elif [ "$OS" == "Linux" ]; then
+    # Linux distributions (Ubuntu, Debian, Fedora, Arch, VPS)
+    echo "Environment: Linux"
+    echo "[1/4] Updating and installing dependencies..."
+    if command -v apt &> /dev/null; then
+        sudo apt update -y
+        sudo apt install -y git nodejs npm ffmpeg python3 make build-essential
+    elif command -v dnf &> /dev/null; then
+        sudo dnf update -y
+        sudo dnf install -y git nodejs npm ffmpeg python3 make gcc gcc-c++
+    elif command -v pacman &> /dev/null; then
+        sudo pacman -Syu --noconfirm git nodejs npm ffmpeg python make gcc
+    elif command -v apk &> /dev/null; then
+        sudo apk update
+        sudo apk add git nodejs npm ffmpeg python3 make g++
+    else
+        echo "⚠️ Unsupported Linux package manager. Proceeding to clone repository..."
+    fi
+
+elif [ "$OS" == "Darwin" ]; then
+    # macOS
+    echo "Environment: macOS"
+    if ! command -v brew &> /dev/null; then
+        echo "❌ Homebrew not found. Please install Homebrew first: https://brew.sh/"
+        exit 1
+    fi
+    echo "[1/4] Updating and installing dependencies..."
+    brew update
+    brew install git node ffmpeg python make
+
+elif [[ "$OS" == *"MINGW"* ]] || [[ "$OS" == *"MSYS"* ]] || [[ "$OS" == *"CYGWIN"* ]]; then
+    # Windows (Git Bash / Cygwin)
+    echo "Environment: Windows"
+    echo "⚠️ Please ensure you have Git, Node.js, and FFmpeg installed natively on Windows."
+    echo "Proceeding with download..."
+else
+    echo "⚠️ Unknown Operating System. Attempting to proceed anyway..."
+fi
 
 echo ""
-echo "[2/4] Installing Core Dependencies..."
-echo "(This might take a minute. Installing Git, Node.js, FFmpeg, and Build Tools)"
-pkg install -y git nodejs ffmpeg python make clang
+echo "[2/4] Verifying Core Dependencies..."
+for cmd in git node npm ffmpeg; do
+    if ! command -v $cmd &> /dev/null; then
+        echo "❌ Error: $cmd could not be found. Please install it manually and re-run this script."
+        exit 1
+    fi
+done
+echo "✅ All dependencies are installed!"
 
 echo ""
 echo "[3/4] Cloning the R Cloud repository..."
@@ -28,8 +80,7 @@ echo ""
 echo "[4/4] Installing Node.js Server Packages..."
 cd server
 
-# We run npm install, but also specifically install the required packages 
-# just in case the package.json gets messed up or is missing on the user's end.
+# Initialize Node modules
 if [ -f "package.json" ]; then
     npm install
 else
