@@ -7,7 +7,7 @@ const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { ZipArchive } = require('archiver');
+const archiver = require('archiver'); // FIX: Corrected Archiver Import
 const { initDB } = require('./db');
 
 const ADMIN_PASSWORD = 'admin'; 
@@ -26,7 +26,8 @@ const FILES_DIR = path.join(__dirname, 'files');
 const THUMBS_DIR = path.join(__dirname, 'thumbs');
 const WEB_DIR = path.join(__dirname, '../web');
 
-app.use(cors());
+// FIX: Relaxed CORS to allow APK Wrappers & Hotspots to send cookies seamlessly
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(WEB_DIR));
@@ -38,11 +39,10 @@ async function ensureDirExists() {
 
 const loginAttempts = new Map();
 function rateLimiter(req, res, next) {
-    const ip = req.ip || req.connection.remoteAddress;
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const record = loginAttempts.get(ip) || { count: 0, lockUntil: 0 };
     if (record.lockUntil > Date.now()) {
-        const timeLeft = Math.ceil((record.lockUntil - Date.now()) / 1000);
-        const mins = Math.ceil(timeLeft / 60);
+        const mins = Math.ceil((record.lockUntil - Date.now()) / 60000);
         return res.status(429).json({ error: `Security lock active. Try again in ${mins} min(s).` });
     }
     req.rateLimitRecord = record; req.rateLimitIp = ip; next();
@@ -84,7 +84,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// AUTH ROUTES
+// ==========================================
+//               AUTH ROUTES
+// ==========================================
 app.post('/api/register', rateLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Required" });
@@ -103,11 +105,14 @@ app.post('/api/login', rateLimiter, async (req, res) => {
         if (user.is_approved === 0) { handleLoginFailure(req); return res.status(403).json({ error: "Account pending admin approval." }); }
         handleLoginSuccess(req);
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        res.cookie('auth_token', token, { httpOnly: true, secure: false, sameSite: 'strict', maxAge: 86400000 });
+        // FIX: sameSite 'lax' ensures cookies save correctly on mobile network connections!
+        res.cookie('auth_token', token, { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 86400000 });
         res.json({ success: true, username: user.username });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
+
 app.post('/api/logout', (req, res) => { res.clearCookie('auth_token'); res.json({ success: true }); });
+
 app.put('/api/password', authenticateToken, async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     try {
@@ -118,13 +123,17 @@ app.put('/api/password', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Error" }); }
 });
 
-// ADMIN ROUTES
+// ==========================================
+//               ADMIN ROUTES
+// ==========================================
 app.post('/api/admin/login', rateLimiter, (req, res) => {
     const { password } = req.body;
-    if (password === ADMIN_PASSWORD) { handleLoginSuccess(req); const token = jwt.sign({ role: 'admin' }, ADMIN_SECRET, { expiresIn: '12h' }); res.cookie('admin_token', token, { httpOnly: true, secure: false, sameSite: 'strict', maxAge: 43200000 }); res.json({ success: true }); } 
+    if (password === ADMIN_PASSWORD) { handleLoginSuccess(req); const token = jwt.sign({ role: 'admin' }, ADMIN_SECRET, { expiresIn: '12h' }); res.cookie('admin_token', token, { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 43200000 }); res.json({ success: true }); } 
     else { handleLoginFailure(req); res.status(403).json({ error: "Invalid Admin Password" }); }
 });
+
 app.post('/api/admin/logout', (req, res) => { res.clearCookie('admin_token'); res.json({ success: true }); });
+
 app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
     try {
         const users = await app.locals.db.all(`SELECT id, username, is_approved, is_frozen, frozen_at, created_at FROM users ORDER BY created_at DESC`);
@@ -132,6 +141,7 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
         res.json({ success: true, users });
     } catch(e) { res.status(500).json({error: "Failed"}); }
 });
+
 app.put('/api/admin/users/:id/approve', authenticateAdmin, async (req, res) => { try { await app.locals.db.run(`UPDATE users SET is_approved = 1 WHERE id = ?`, [req.params.id]); res.json({ success: true }); } catch(e) { res.status(500).json({error: "Failed"}); }});
 app.put('/api/admin/users/:id/freeze', authenticateAdmin, async (req, res) => {
     const { masterPassword } = req.body; if (masterPassword !== MASTER_PASSWORD) return res.status(403).json({ error: "INVALID_MASTER" });
@@ -140,20 +150,25 @@ app.put('/api/admin/users/:id/freeze', authenticateAdmin, async (req, res) => {
         if (user.is_frozen === 1) await app.locals.db.run(`UPDATE users SET is_frozen = 0, frozen_at = NULL WHERE id = ?`, [req.params.id]); else await app.locals.db.run(`UPDATE users SET is_frozen = 1, frozen_at = CURRENT_TIMESTAMP WHERE id = ?`, [req.params.id]); res.json({ success: true });
     } catch(e) { res.status(500).json({error: "Failed"}); }
 });
+
 app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
     const { masterPassword } = req.body; if (masterPassword !== MASTER_PASSWORD) return res.status(403).json({ error: "INVALID_MASTER" });
     try { await destroyUser(req.params.id); res.json({ success: true }); } catch(e) { res.status(500).json({error: "Failed"}); }
 });
+
 async function destroyUser(userId) {
     const files = await app.locals.db.all(`SELECT stored_name FROM files WHERE user_id = ?`, [userId]);
     for (let f of files) { try { await fs.unlink(path.join(FILES_DIR, f.stored_name)); await fs.unlink(path.join(THUMBS_DIR, f.stored_name + '.webp')); await fs.unlink(path.join(THUMBS_DIR, f.stored_name + '.jpg')); } catch(e){} }
     await app.locals.db.run(`DELETE FROM users WHERE id = ?`, [userId]); 
 }
+
 setInterval(async () => {
     try { const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').replace('Z', ''); const doomedUsers = await app.locals.db.all(`SELECT id, username FROM users WHERE is_frozen = 1 AND frozen_at <= ?`, [tenDaysAgo]); for (let u of doomedUsers) await destroyUser(u.id); } catch(e) { }
 }, 1000 * 60 * 60);
 
-// STORAGE QUOTA
+// ==========================================
+//             STORAGE ENGINE
+// ==========================================
 app.get('/api/storage', authenticateToken, async (req, res) => {
     try {
         const userSizeRow = await app.locals.db.get(`SELECT SUM(size) as total FROM files WHERE user_id = ?`, [req.user.id]);
@@ -173,7 +188,9 @@ app.get('/api/storage', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed to calculate storage" }); }
 });
 
-// DRIVE ENGINE
+// ==========================================
+//               DRIVE ENGINE
+// ==========================================
 app.get(['/api/drive', '/api/drive/:folderId'], authenticateToken, async (req, res) => {
     const folderId = req.params.folderId || null; const view = req.query.view || 'home';
     try {
@@ -214,17 +231,15 @@ app.post('/api/folders', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
-// THE FIX: Massive upgrade to handle recursive Bulk Folder Uploads!
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
     let folderId = req.body.folderId && req.body.folderId !== 'null' ? parseInt(req.body.folderId) : null;
-    const relativePath = req.body.relativePath; // Automatically extracts folder trees!
+    const relativePath = req.body.relativePath; 
     
     try {
         if (relativePath && relativePath.includes('/')) {
             const parts = relativePath.split('/');
-            parts.pop(); // Remove the filename
+            parts.pop(); 
             let currentParent = folderId;
-            
             for (const part of parts) {
                 let row = await app.locals.db.get(`SELECT id FROM folders WHERE name = ? AND parent_id ${currentParent ? '= ?' : 'IS NULL'} AND user_id = ? AND is_trash = 0`, currentParent ? [part, currentParent, req.user.id] : [part, req.user.id]);
                 if (!row) {
@@ -354,25 +369,73 @@ app.put('/api/move', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
+// ==========================================
+//   FIX: THUMBNAIL ENGINE (FFMPEG & SHARP)
+// ==========================================
+async function serveThumbnail(fileRecord, res) {
+    if (!fileRecord) return res.status(404).end();
+    const ext = fileRecord.original_name.split('.').pop().toLowerCase();
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+    const isVideo = ['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext);
+
+    if (!isImage && !isVideo) return res.status(404).end();
+
+    const thumbPathWebp = path.join(THUMBS_DIR, fileRecord.stored_name + '.webp');
+    const thumbPathJpg = path.join(THUMBS_DIR, fileRecord.stored_name + '.jpg');
+    const originalPath = path.join(FILES_DIR, fileRecord.stored_name);
+
+    // Try to serve cached thumbnails first
+    try { await fs.access(thumbPathWebp); return res.sendFile(thumbPathWebp); } catch (e) { } 
+    try { await fs.access(thumbPathJpg); return res.sendFile(thumbPathJpg); } catch (e) { } 
+
+    if (isImage) {
+        if (!sharp) return res.sendFile(originalPath); // Just send raw image if sharp is missing
+        try {
+            await sharp(originalPath).resize(200, 200, { fit: 'cover' }).webp({ quality: 80 }).toFile(thumbPathWebp); 
+            return res.sendFile(thumbPathWebp);
+        } catch(e) { return res.sendFile(originalPath); }
+    } else if (isVideo) {
+        if (!ffmpeg) return res.status(404).end(); // If no ffmpeg, return 404 (frontend will show movie icon)
+        
+        try {
+            // Extract a single raw JPG frame from the video
+            await new Promise((resolve, reject) => { 
+                ffmpeg(originalPath)
+                    .on('end', resolve)
+                    .on('error', reject)
+                    .screenshots({ count: 1, timestamps: ['10%'], folder: THUMBS_DIR, filename: fileRecord.stored_name + '.jpg', size: '200x200' }); 
+            });
+            
+            if (sharp) {
+                // If sharp exists, optimize the JPG frame into WEBP
+                try {
+                    await sharp(thumbPathJpg).webp({ quality: 80 }).toFile(thumbPathWebp); 
+                    await fs.unlink(thumbPathJpg).catch(()=>{}); 
+                    return res.sendFile(thumbPathWebp);
+                } catch(err) {
+                    return res.sendFile(thumbPathJpg);
+                }
+            } else {
+                // FIX: If sharp is missing, just serve the raw JPG frame!
+                return res.sendFile(thumbPathJpg);
+            }
+        } catch(e) { return res.status(404).end(); }
+    }
+}
+
 app.get('/api/thumbnail/:id', authenticateToken, async (req, res) => {
     try {
         const file = await app.locals.db.get(`SELECT original_name, stored_name FROM files WHERE id = ? AND user_id = ?`, [req.params.id, req.user.id]);
-        if (!file) return res.status(404).end();
-        const ext = file.original_name.split('.').pop().toLowerCase();
-        if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) && !['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) return res.redirect(`/api/view/${req.params.id}`);
-        const thumbPath = path.join(THUMBS_DIR, file.stored_name + '.webp');
-        try { await fs.access(thumbPath); return res.sendFile(thumbPath); } catch (e) { } 
-        if (!sharp) return res.sendFile(path.join(FILES_DIR, file.stored_name));
+        await serveThumbnail(file, res);
+    } catch(e) { res.status(500).end(); }
+});
 
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-            await sharp(path.join(FILES_DIR, file.stored_name)).resize(200, 200, { fit: 'cover' }).webp({ quality: 80 }).toFile(thumbPath); return res.sendFile(thumbPath);
-        } else {
-            if (!ffmpeg) return res.sendFile(path.join(FILES_DIR, file.stored_name)); 
-            const tempFrame = path.join(THUMBS_DIR, file.stored_name + '.jpg');
-            await new Promise((resolve, reject) => { ffmpeg(path.join(FILES_DIR, file.stored_name)).on('end', resolve).on('error', reject).screenshots({ count: 1, timestamps: ['10%'], folder: THUMBS_DIR, filename: file.stored_name + '.jpg', size: '200x200' }); });
-            await sharp(tempFrame).webp({ quality: 80 }).toFile(thumbPath); await fs.unlink(tempFrame).catch(()=>{}); return res.sendFile(thumbPath);
-        }
-    } catch (err) { try { const file = await app.locals.db.get(`SELECT stored_name FROM files WHERE id = ?`, [req.params.id]); res.sendFile(path.join(FILES_DIR, file.stored_name)); } catch(e) { res.status(500).end(); } }
+app.get('/share/thumbnail/:share_id', async (req, res) => {
+    try {
+        const file = await app.locals.db.get(`SELECT original_name, stored_name, is_public FROM files WHERE share_id = ?`, [req.params.share_id]);
+        if (!file || file.is_public !== 1) return res.status(403).end();
+        await serveThumbnail(file, res);
+    } catch(e) { res.status(500).end(); }
 });
 
 app.get('/api/view/:id', authenticateToken, async (req, res) => {
@@ -386,8 +449,6 @@ app.get('/api/download/:id', authenticateToken, async (req, res) => {
 // ==========================================
 //          SECURE SHARING ENGINE
 // ==========================================
-
-// Validates PIN and Expiry for Public Endpoints securely
 async function serveProtectedContent(req, res, shareId, renderCallback) {
     let item = await app.locals.db.get(`SELECT * FROM files WHERE share_id = ?`, [shareId]);
     let type = 'file';
@@ -426,7 +487,6 @@ async function serveProtectedContent(req, res, shareId, renderCallback) {
     await renderCallback(item, type);
 }
 
-// PIN Validation Gateway
 app.post('/share/auth/:share_id', async (req, res) => {
     const { pin } = req.body;
     res.cookie(`auth_share_${req.params.share_id}`, pin, { httpOnly: true, secure: false, maxAge: 24 * 60 * 60 * 1000 });
@@ -466,7 +526,6 @@ app.get('/share/file/:share_id', async (req, res) => {
     });
 });
 
-// BULLETPROOF PUBLIC FOLDER VIEWER WITH NETFLIX PLAYER
 app.get('/share/folder/:share_id', async (req, res) => {
     serveProtectedContent(req, res, req.params.share_id, async (folder, type) => {
         if(type !== 'folder') return res.status(404).send("Not a folder");
@@ -506,7 +565,31 @@ app.get('/share/folder/:share_id', async (req, res) => {
                     if (sortedFolders.length === 0 && sortedFiles.length === 0) { container.innerHTML = '<div class="flex flex-col items-center justify-center py-24 text-[#c4c7c5]"><span class="material-symbols-rounded text-[64px] mb-4 opacity-50">folder_open</span><p class="text-[16px] font-medium">This folder is empty</p></div>'; return; }
                     let html = ''; const isList = viewMode === 'list'; const gridClass = isList ? 'flex flex-col mb-8' : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-8'; const fileGridClass = isList ? 'flex flex-col' : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4';
                     if (sortedFolders.length > 0) { html += '<h3 class="text-[14px] font-medium text-[#e3e3e3] mb-3 mt-4">Folders</h3><div class="' + gridClass + '">'; sortedFolders.forEach(f => { if (isList) { html += \`<a href="/share/folder/\${f.id}" class="flex items-center justify-between p-3 border-b border-[#444746] bg-[#1e1f20] hover:bg-[#282a2c] transition group"><div class="flex items-center flex-1 overflow-hidden"><span class="material-symbols-rounded filled text-[#c4c7c5] text-[24px] mr-4">folder</span><span class="text-[14px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><div class="w-32 hidden md:block text-[#c4c7c5] text-[13px]">\${formatDate(f.date)}</div><div class="w-20 hidden md:block text-[#c4c7c5] text-[13px]">--</div></a>\`; } else { html += \`<a href="/share/folder/\${f.id}" class="flex items-center bg-[#1e1f20] hover:bg-[#282a2c] rounded-[16px] py-3.5 px-4 transition border border-transparent hover:border-[#444746] group"><span class="material-symbols-rounded filled text-[#c4c7c5] text-[28px] mr-4">folder</span><div class="flex flex-col overflow-hidden"><span class="text-[15px] font-medium text-[#e3e3e3] truncate">\${f.name}</span><span class="text-[11px] text-[#c4c7c5] mt-0.5">\${formatDate(f.date)}</span></div></a>\`; } }); html += '</div>'; }
-                    if (sortedFiles.length > 0) { html += '<h3 class="text-[14px] font-medium text-[#e3e3e3] mb-3 mt-4">Files</h3><div class="' + fileGridClass + '">'; sortedFiles.forEach(f => { const ft = getFileIcon(f.name); const safeName = String(f.name).replace(/'/g, "\\\\'"); if (isList) { html += \`<div onclick="openPreview('\${f.id}', '\${safeName}')" class="flex items-center justify-between p-3 border-b border-[#444746] bg-[#1e1f20] hover:bg-[#282a2c] transition cursor-pointer group"><div class="flex items-center flex-1 overflow-hidden"><span class="material-symbols-rounded filled \${ft.color} text-[24px] mr-4">\${ft.icon}</span><span class="text-[14px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><div class="w-32 hidden md:block text-[#c4c7c5] text-[13px]">\${formatDate(f.date)}</div><div class="w-20 hidden md:block text-[#c4c7c5] text-[13px]">\${formatSize(f.size)}</div><a href="/share/file/\${f.id}" download="\${f.name}" onclick="event.stopPropagation()" class="p-2 rounded-full hover:bg-white/10 transition ml-4"><span class="material-symbols-rounded text-[#c4c7c5]">download</span></a></div>\`; } else { html += \`<div onclick="openPreview('\${f.id}', '\${safeName}')" class="flex flex-col bg-[#1e1f20] hover:bg-[#282a2c] border border-transparent hover:border-[#444746] rounded-[12px] overflow-hidden cursor-pointer transition group"><div class="h-32 bg-[#131314] m-1.5 rounded-[8px] flex items-center justify-center"><span class="material-symbols-rounded text-[48px] \${ft.color}">\${ft.icon}</span></div><div class="px-3 pb-3 pt-1 flex justify-between items-center"><div class="flex flex-col overflow-hidden w-full"><div class="flex items-center mb-0.5"><span class="material-symbols-rounded filled \${ft.color} text-[16px] mr-2 shrink-0">\${ft.icon}</span><span class="text-[13px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><span class="text-[11px] text-[#c4c7c5]">\${formatSize(f.size)} • \${formatDate(f.date)}</span></div><a href="/share/file/\${f.id}" download="\${f.name}" onclick="event.stopPropagation()" class="p-1 rounded-full hover:bg-white/10 transition ml-2"><span class="material-symbols-rounded text-[#c4c7c5]">download</span></a></div></div>\`; } }); html += '</div>'; }
+                    
+                    if (sortedFiles.length > 0) { 
+                        html += '<h3 class="text-[14px] font-medium text-[#e3e3e3] mb-3 mt-4">Files</h3><div class="' + fileGridClass + '">'; 
+                        sortedFiles.forEach(f => { 
+                            const ft = getFileIcon(f.name); 
+                            const safeName = String(f.name).replace(/'/g, "\\\\'"); 
+                            if (isList) { 
+                                html += \`<div onclick="openPreview('\${f.id}', '\${safeName}')" class="flex items-center justify-between p-3 border-b border-[#444746] bg-[#1e1f20] hover:bg-[#282a2c] transition cursor-pointer group"><div class="flex items-center flex-1 overflow-hidden"><span class="material-symbols-rounded filled \${ft.color} text-[24px] mr-4">\${ft.icon}</span><span class="text-[14px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><div class="w-32 hidden md:block text-[#c4c7c5] text-[13px]">\${formatDate(f.date)}</div><div class="w-20 hidden md:block text-[#c4c7c5] text-[13px]">\${formatSize(f.size)}</div><a href="/share/file/\${f.id}" download="\${f.name}" onclick="event.stopPropagation()" class="p-2 rounded-full hover:bg-white/10 transition ml-4"><span class="material-symbols-rounded text-[#c4c7c5]">download</span></a></div>\`; 
+                            } else { 
+                                let thumbnailHTML = \`<span class="material-symbols-rounded text-[48px] \${ft.color}">\${ft.icon}</span>\`;
+                                const ext = f.name.split('.').pop().toLowerCase();
+                                if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
+                                    thumbnailHTML = \`
+                                        <img src="/share/thumbnail/\${f.id}" loading="lazy" class="w-full h-full object-cover rounded-[8px] z-10 relative" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+                                        <div class="absolute inset-0 flex items-center justify-center hidden z-0"><span class="material-symbols-rounded text-[48px] \${ft.color}">\${ft.icon}</span></div>
+                                    \`; 
+                                    if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
+                                        thumbnailHTML += \`<div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-[8px] z-20 pointer-events-none"><span class="material-symbols-rounded text-white drop-shadow-lg text-[32px]">play_circle</span></div>\`; 
+                                    } 
+                                }
+                                html += \`<div onclick="openPreview('\${f.id}', '\${safeName}')" class="flex flex-col bg-[#1e1f20] hover:bg-[#282a2c] border border-transparent hover:border-[#444746] rounded-[12px] overflow-hidden cursor-pointer transition group"><div class="h-32 bg-[#131314] m-1.5 rounded-[8px] flex items-center justify-center relative">\${thumbnailHTML}</div><div class="px-3 pb-3 pt-1 flex justify-between items-center"><div class="flex flex-col overflow-hidden w-full"><div class="flex items-center mb-0.5"><span class="material-symbols-rounded filled \${ft.color} text-[16px] mr-2 shrink-0">\${ft.icon}</span><span class="text-[13px] font-medium text-[#e3e3e3] truncate">\${f.name}</span></div><span class="text-[11px] text-[#c4c7c5]">\${formatSize(f.size)} • \${formatDate(f.date)}</span></div><a href="/share/file/\${f.id}" download="\${f.name}" onclick="event.stopPropagation()" class="p-1 rounded-full hover:bg-white/10 transition ml-2"><span class="material-symbols-rounded text-[#c4c7c5]">download</span></a></div></div>\`; 
+                            } 
+                        }); 
+                        html += '</div>'; 
+                    }
                     container.innerHTML = html;
                 } catch (err) { }
             }
@@ -530,10 +613,8 @@ app.get('/share/folder/:share_id', async (req, res) => {
                         content.innerHTML = '<img src="/share/file/' + id + '" class="max-w-full max-h-full object-contain drop-shadow-2xl">'; 
                     } 
                     else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
-                        if(modalHeader) modalHeader.classList.add('hidden'); // Hide default header to let Netflix UI take over!
+                        if(modalHeader) modalHeader.classList.add('hidden');
                         content.className = "flex-1 flex items-center justify-center w-full h-full p-0 m-0 bg-black";
-                        
-                        // THE FIX: Boot up the custom Netflix-style player!
                         RPlayer.init(content, '/share/file/' + id, name);
                     } 
                     else { 
@@ -549,15 +630,10 @@ app.get('/share/folder/:share_id', async (req, res) => {
             function closePreview() { 
                 const modal = document.getElementById('previewModal'); 
                 modal.classList.add('opacity-0'); 
-                
-                // THE FIX: Cleanly destroy player to stop audio
                 if (typeof RPlayer !== 'undefined') RPlayer.destroy();
-                
                 setTimeout(() => { 
                     modal.classList.add('hidden'); 
                     document.getElementById('previewContent').innerHTML = ''; 
-                    
-                    // Restore header for photos
                     const modalHeader = modal.querySelector('div:first-child');
                     if(modalHeader) modalHeader.classList.remove('hidden');
                 }, 300); 
@@ -568,15 +644,13 @@ app.get('/share/folder/:share_id', async (req, res) => {
     });
 });
 
-});
-
 app.get('/share/download/zip/:share_id', async (req, res) => {
     serveProtectedContent(req, res, req.params.share_id, async (folder, type) => {
         if(type !== 'folder') return res.status(400).send("Not a folder");
         const safeName = folder.name.replace(/[^a-zA-Z0-9-_ \.]/g, '_');
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${safeName}_Export.zip"`);
-        const archive = new ZipArchive({ zlib: { level: 5 } });
+        const archive = archiver('zip', { zlib: { level: 5 } });
         archive.on('warning', err => { if (err.code !== 'ENOENT') console.warn(err); });
         archive.on('error', err => { if (!res.headersSent) res.status(500).end(); });
         archive.pipe(res);
@@ -593,7 +667,7 @@ app.get('/share/download/zip/:share_id', async (req, res) => {
 });
 
 async function startServer() {
-    await ensureDirExists(FILES_DIR);
+    await ensureDirExists();
     app.locals.db = await initDB();
     app.listen(PORT, () => console.log(`🚀 R Cloud Engine running live on http://localhost:${PORT}`));
 }

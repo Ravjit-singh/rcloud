@@ -75,7 +75,6 @@ const ui = {
         });
     },
 
-    // ADVANCED SHARE SETTINGS MODAL
     openShareModal(id, type, isPublic, shareId) {
         return new Promise((resolve) => {
             const modal = document.getElementById('customShareModal');
@@ -309,8 +308,17 @@ const ui = {
                     card.className = `flex items-center justify-between p-3 border-b border-[#444746] ${bgClass} hover:bg-md-hover transition cursor-pointer group`;
                     card.innerHTML = `<div class="flex items-center flex-1 overflow-hidden pointer-events-none"><div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}')">${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px]">check_circle</span>` : `<span class="material-symbols-rounded filled ${fileType.color} text-[24px]">${fileType.icon}</span>`}</div><span class="text-[14px] font-medium text-md-text truncate">${file.name}</span>${starBadge}</div><div class="flex items-center shrink-0 w-32 hidden md:flex text-md-text-muted text-[13px]">${this.formatDate(file.date)}</div><div class="flex items-center shrink-0 w-20 hidden md:flex text-md-text-muted text-[13px]">${this.formatSize(file.size)}</div><div class="flex items-center shrink-0 ml-4 pointer-events-auto"><button onclick="ui.openItemMenu(event, '${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}', ${isShared}, '${file.share_id}', ${file.is_starred === 1}, ${file.is_trash === 1})" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[20px] transition p-1">more_vert</button></div>`;
                 } else {
-                    let thumbnailHTML = `<span class="material-symbols-rounded text-[48px] ${fileType.color}">${fileType.icon}</span>`;
-                    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { thumbnailHTML = `<img src="/api/thumbnail/${file.id}" loading="lazy" class="w-full h-full object-cover rounded-[8px]">`; if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { thumbnailHTML += `<div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-[8px]"><span class="material-symbols-rounded text-white drop-shadow-lg text-[32px]">play_circle</span></div>`; } } 
+                    // THE FIX: Embedded robust onerror fallback to gracefully render the Material Icon
+                    let thumbnailHTML = \`<span class="material-symbols-rounded text-[48px] \${fileType.color}">\${fileType.icon}</span>\`;
+                    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
+                        thumbnailHTML = \`
+                            <img src="/api/thumbnail/\${file.id}" loading="lazy" class="w-full h-full object-cover rounded-[8px] z-10 relative" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+                            <div class="absolute inset-0 flex items-center justify-center hidden z-0"><span class="material-symbols-rounded text-[48px] \${fileType.color}">\${fileType.icon}</span></div>
+                        \`; 
+                        if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
+                            thumbnailHTML += \`<div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-[8px] z-20 pointer-events-none"><span class="material-symbols-rounded text-white drop-shadow-lg text-[32px]">play_circle</span></div>\`; 
+                        } 
+                    } 
                     card.className = `flex flex-col ${bgClass} rounded-[12px] overflow-hidden cursor-pointer transition border group`;
                     card.innerHTML = `<div class="h-32 bg-md-surface m-1.5 rounded-[8px] flex items-center justify-center relative pointer-events-none">${thumbnailHTML}<div class="absolute top-2 left-2 pointer-events-auto cursor-pointer z-10" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}')">${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px] bg-md-surface rounded-full shadow-sm">check_circle</span>` : `<span class="material-symbols-rounded text-md-text-muted text-[24px] ${isSelectionMode?'opacity-100':'opacity-0 group-hover:opacity-100'} transition drop-shadow-md">radio_button_unchecked</span>`}</div></div><div class="px-3 pb-3 pt-1 flex justify-between items-center relative"><div class="flex flex-col overflow-hidden w-full pointer-events-none"><div class="flex items-center mb-0.5"><span class="material-symbols-rounded filled ${fileType.color} text-[16px] mr-2 shrink-0">${fileType.icon}</span><span class="text-[13px] font-medium text-md-text truncate" title="${file.name}">${file.name}</span>${starBadge}</div><span class="text-[11px] text-md-text-muted">${this.formatSize(file.size)} • ${this.formatDate(file.date)}</span></div><div class="flex items-center shrink-0 ml-2"><button onclick="ui.openItemMenu(event, '${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}', ${isShared}, '${file.share_id}', ${file.is_starred === 1}, ${file.is_trash === 1})" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[24px] transition cursor-pointer pointer-events-auto">more_vert</button></div></div>`;
                 }
@@ -331,59 +339,36 @@ const ui = {
         if (res.status === 200) { this.showToast(`Successfully pasted!`, "check_circle", "text-green-400"); this.clearClipboard(); this.loadDrive(true); } else { this.showToast("Failed to paste items", "error", "text-red-400"); }
     },
 
-        openPreview(id, name) {
-        const ext = name.split('.').pop().toLowerCase();
-        const modal = document.getElementById('previewModal'); 
-        const content = document.getElementById('previewContent'); 
-        const downloadBtn = document.getElementById('downloadPreviewBtn');
+    openPreview(id, name) {
+        const ext = name.split('.').pop().toLowerCase(); const modal = document.getElementById('previewModal'); const content = document.getElementById('previewContent'); const downloadBtn = document.getElementById('downloadPreviewBtn'); document.getElementById('previewFilename').textContent = name; downloadBtn.onclick = () => window.location.href = `/api/download/${id}`; 
         
-        document.getElementById('previewFilename').textContent = name; 
-        downloadBtn.onclick = () => window.location.href = `/api/download/${id}`; 
-        
-        // Hide standard modal header for videos so the Netflix UI takes full control
         const modalHeader = modal.querySelector('div:first-child');
-
         content.innerHTML = ''; 
         
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { 
-            modalHeader.classList.remove('hidden');
+            if(modalHeader) modalHeader.classList.remove('hidden');
             content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0";
             content.innerHTML = `<img src="/api/view/${id}" class="max-w-full max-h-full object-contain drop-shadow-2xl">`; 
-        } 
-        else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
-            modalHeader.classList.add('hidden'); // Hide the standard bar!
+        } else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
+            if(modalHeader) modalHeader.classList.add('hidden');
             content.className = "flex-1 flex items-center justify-center w-full h-full p-0 m-0 bg-black";
-            
-            // THE FIX: Boot up the custom Netflix-style player!
             RPlayer.init(content, `/api/view/${id}`, name);
-        } 
-        else { 
-            modalHeader.classList.remove('hidden');
+        } else { 
+            if(modalHeader) modalHeader.classList.remove('hidden');
             content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0";
             content.innerHTML = `<div class="flex flex-col items-center text-md-text-muted"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/api/download/${id}" class="px-8 py-3 bg-md-active text-md-accent rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center"><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>`; 
         }
-        
-        modal.classList.remove('hidden'); 
-        setTimeout(() => modal.classList.remove('opacity-0'), 50);
+        modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 50);
     },
-
     closePreview() { 
-        const modal = document.getElementById('previewModal'); 
-        modal.classList.add('opacity-0'); 
-        
-        // THE FIX: Cleanly destroy the custom video player to free up RAM
+        const modal = document.getElementById('previewModal'); modal.classList.add('opacity-0'); 
         if (typeof RPlayer !== 'undefined') RPlayer.destroy();
-        
         setTimeout(() => { 
-            modal.classList.add('hidden'); 
-            document.getElementById('previewContent').innerHTML = ''; 
-            
-            // Restore standard modal header in case the next file is a photo
+            modal.classList.add('hidden'); document.getElementById('previewContent').innerHTML = ''; 
             const modalHeader = modal.querySelector('div:first-child');
             if(modalHeader) modalHeader.classList.remove('hidden');
         }, 300); 
     },
-
 
     uploadQueue(files) {
         const panel = document.getElementById('uploadQueuePanel'); const list = document.getElementById('uploadList'); panel.classList.remove('hidden');
@@ -399,10 +384,7 @@ const ui = {
     executeUpload(file, uiId) {
         const formData = new FormData(); formData.append('file', file);
         if (state.currentFolderId) formData.append('folderId', state.currentFolderId);
-        
-        // THE FIX: Embed relative paths into folder logic recursively
         if (file.webkitRelativePath) formData.append('relativePath', file.webkitRelativePath);
-
         const xhr = new XMLHttpRequest(); xhr.open('POST', '/api/upload', true); xhr.withCredentials = true;
         const itemUI = document.getElementById(uiId); const progressBar = itemUI.querySelector('.progress-bar'); const statusIcon = itemUI.querySelector('.status-icon');
         xhr.upload.onprogress = (event) => { if (event.lengthComputable) { progressBar.style.width = ((event.loaded / event.total) * 100) + '%'; } };
