@@ -3,9 +3,14 @@ const RPlayer = {
     container: null,
     hideTimer: null,
     isDragging: false,
+    
+    // FIX 4: Proper Garbage Collection Handlers
+    _boundMouseMove: null,
+    _boundTouchMove: null,
+    _boundMouseUp: null,
+    _boundTouchEnd: null,
 
     init(parentElement, src, title) {
-        // Dynamically figure out how to close the modal depending on if we are in the main app or a public link
         const closeAction = typeof ui !== 'undefined' ? 'ui.closePreview()' : 'closePreview()';
 
         parentElement.innerHTML = `
@@ -28,7 +33,6 @@ const RPlayer = {
                 </div>
 
                 <div id="rp-ui" class="absolute inset-0 flex flex-col justify-between z-30 transition-opacity duration-300 pointer-events-none">
-                    
                     <div class="w-full bg-gradient-to-b from-black/90 to-transparent p-4 md:p-6 pointer-events-auto flex justify-between items-center">
                         <div class="flex items-center space-x-4">
                             <button onclick="${closeAction}" class="text-white hover:text-gray-300 transition p-2"><span class="material-symbols-rounded text-[32px]">arrow_back</span></button>
@@ -37,7 +41,6 @@ const RPlayer = {
                     </div>
 
                     <div class="w-full bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 md:p-8 pointer-events-auto">
-                        
                         <div id="rp-timeline" class="relative w-full h-1.5 bg-white/30 rounded-full cursor-pointer group mb-4 hover:h-2.5 transition-all duration-200">
                             <div id="rp-buffered" class="absolute top-0 left-0 bottom-0 bg-white/50 rounded-full pointer-events-none" style="width: 0%"></div>
                             <div id="rp-progress" class="absolute top-0 left-0 bottom-0 bg-[#E50914] rounded-full pointer-events-none flex justify-end items-center" style="width: 0%">
@@ -59,7 +62,6 @@ const RPlayer = {
                                 <button id="rp-fullscreen" class="hover:text-gray-300 transition p-1"><span class="material-symbols-rounded text-[32px] md:text-[36px]">fullscreen</span></button>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -94,7 +96,6 @@ const RPlayer = {
             }, 400);
         };
 
-        // Play/Pause Engine
         const togglePlay = () => {
             if (v.paused) { v.play(); triggerAnim('play_arrow'); } 
             else { v.pause(); triggerAnim('pause'); }
@@ -107,37 +108,21 @@ const RPlayer = {
         v.onplay = () => playBtn.innerHTML = '<span class="material-symbols-rounded filled text-[36px] md:text-[42px]">pause</span>';
         v.onpause = () => playBtn.innerHTML = '<span class="material-symbols-rounded filled text-[36px] md:text-[42px]">play_arrow</span>';
 
-        // Fast Forward & Rewind Engine (10 seconds)
         const seek = (seconds) => {
             v.currentTime += seconds;
             triggerAnim(seconds > 0 ? 'forward_10' : 'replay_10');
             this.startHideTimer();
         };
 
-        // Double Tap Math for Mobile Devices
-        let lastTapLeft = 0;
-        let lastTapRight = 0;
-        
-        document.getElementById('rp-left-zone').ontouchstart = (e) => {
-            const currentTime = new Date().getTime();
-            if (currentTime - lastTapLeft < 300) { seek(-10); e.preventDefault(); }
-            lastTapLeft = currentTime;
-        };
-        document.getElementById('rp-right-zone').ontouchstart = (e) => {
-            const currentTime = new Date().getTime();
-            if (currentTime - lastTapRight < 300) { seek(10); e.preventDefault(); }
-            lastTapRight = currentTime;
-        };
+        let lastTapLeft = 0; let lastTapRight = 0;
+        document.getElementById('rp-left-zone').ontouchstart = (e) => { const currentTime = new Date().getTime(); if (currentTime - lastTapLeft < 300) { seek(-10); e.preventDefault(); } lastTapLeft = currentTime; };
+        document.getElementById('rp-right-zone').ontouchstart = (e) => { const currentTime = new Date().getTime(); if (currentTime - lastTapRight < 300) { seek(10); e.preventDefault(); } lastTapRight = currentTime; };
 
-        // Desktop double clicks
         document.getElementById('rp-left-zone').ondblclick = () => seek(-10);
         document.getElementById('rp-right-zone').ondblclick = () => seek(10);
-        
-        // UI Buttons
         document.getElementById('rp-rewind').onclick = () => seek(-10);
         document.getElementById('rp-forward').onclick = () => seek(10);
 
-        // Core Timers
         v.ontimeupdate = () => {
             if (!this.isDragging) {
                 const percent = (v.currentTime / v.duration) * 100;
@@ -157,7 +142,6 @@ const RPlayer = {
         v.onwaiting = () => loader.classList.remove('hidden');
         v.onplaying = () => loader.classList.add('hidden');
 
-        // Flawless Scrubber Engine
         const updateScrub = (e) => {
             const rect = timeline.getBoundingClientRect();
             const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
@@ -171,13 +155,17 @@ const RPlayer = {
         timeline.onmousedown = (e) => { this.isDragging = true; updateScrub(e); };
         timeline.ontouchstart = (e) => { this.isDragging = true; updateScrub(e); };
         
-        document.addEventListener('mousemove', (e) => { if (this.isDragging) updateScrub(e); });
-        document.addEventListener('touchmove', (e) => { if (this.isDragging) updateScrub(e); }, { passive: false });
+        // FIX 4: Bind exact references to gracefully unmount them later
+        this._boundMouseMove = (e) => { if (this.isDragging) updateScrub(e); };
+        this._boundTouchMove = (e) => { if (this.isDragging) updateScrub(e); };
+        this._boundMouseUp = () => { this.isDragging = false; };
+        this._boundTouchEnd = () => { this.isDragging = false; };
         
-        document.addEventListener('mouseup', () => { this.isDragging = false; });
-        document.addEventListener('touchend', () => { this.isDragging = false; });
+        document.addEventListener('mousemove', this._boundMouseMove);
+        document.addEventListener('touchmove', this._boundTouchMove, { passive: false });
+        document.addEventListener('mouseup', this._boundMouseUp);
+        document.addEventListener('touchend', this._boundTouchEnd);
 
-        // Mute Toggle
         const muteBtn = document.getElementById('rp-mute');
         muteBtn.onclick = () => {
             v.muted = !v.muted;
@@ -185,7 +173,6 @@ const RPlayer = {
             this.startHideTimer();
         };
 
-        // Fullscreen Toggle
         document.getElementById('rp-fullscreen').onclick = () => {
             if (!document.fullscreenElement) {
                 if (this.container.requestFullscreen) this.container.requestFullscreen();
@@ -197,7 +184,6 @@ const RPlayer = {
             this.startHideTimer();
         };
 
-        // Auto-Hide HUD Logic
         this.container.onmousemove = () => this.startHideTimer();
         this.container.onclick = () => this.startHideTimer();
         this.container.ontouchstart = () => this.startHideTimer();
@@ -212,7 +198,7 @@ const RPlayer = {
                 this.ui.classList.add('opacity-0');
                 this.container.style.cursor = 'none';
             }
-        }, 3000); // UI Fades to black after 3 seconds
+        }, 3000); 
     },
 
     formatTime(sec) {
@@ -222,7 +208,19 @@ const RPlayer = {
     },
 
     destroy() {
-        if (this.video) { this.video.pause(); this.video.removeAttribute('src'); this.video.load(); }
+        if (this.video) { 
+            this.video.pause(); 
+            this.video.removeAttribute('src'); 
+            this.video.src = ''; // Sever connection entirely
+            this.video.load(); 
+            this.video = null;
+        }
         clearTimeout(this.hideTimer);
+        
+        // FIX 4: Prevent Ghost event listeners from clogging Swiper!
+        if (this._boundMouseMove) document.removeEventListener('mousemove', this._boundMouseMove);
+        if (this._boundTouchMove) document.removeEventListener('touchmove', this._boundTouchMove);
+        if (this._boundMouseUp) document.removeEventListener('mouseup', this._boundMouseUp);
+        if (this._boundTouchEnd) document.removeEventListener('touchend', this._boundTouchEnd);
     }
 };

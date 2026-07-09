@@ -2,7 +2,7 @@ const ui = {
     foldersGrid: document.getElementById('foldersGrid'),
     filesGrid: document.getElementById('filesGrid'),
     toastTimer: null,
-    currentFiles: [], // THE FIX: Stores the active file list for gallery swiping
+    currentFiles: [], 
     previewIndex: 0,
 
     toggleSidebar(forceClose = false) {
@@ -88,9 +88,7 @@ const ui = {
             const expirySelect = document.getElementById('shareExpirySelect');
             const linkBtn = document.getElementById('copyShareLinkBtn');
 
-            toggle.checked = isPublic;
-            pinInput.value = '';
-            expirySelect.value = '0';
+            toggle.checked = isPublic; pinInput.value = ''; expirySelect.value = '0';
             
             const updateUI = () => {
                 if(toggle.checked) {
@@ -104,26 +102,17 @@ const ui = {
                 }
             };
             
-            toggle.onchange = updateUI;
-            updateUI();
-            
+            toggle.onchange = updateUI; updateUI();
             modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 10);
-            
             const cleanup = () => { modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 300); };
 
             document.getElementById('shareModalCancelBtn').onclick = () => { cleanup(); resolve(false); };
             document.getElementById('shareModalSaveBtn').onclick = async () => {
-                cleanup();
-                const isPub = toggle.checked;
-                const pin = pinInput.value.trim();
-                const expiry = parseInt(expirySelect.value);
-                
+                cleanup(); const isPub = toggle.checked; const pin = pinInput.value.trim(); const expiry = parseInt(expirySelect.value);
                 this.showToast("Updating security rules...", "sync", "text-md-accent");
                 const res = await api.toggleShare(id, type, isPub, pin, expiry);
-                if (res.status === 200) {
-                    this.showToast(isPub ? "Link Live!" : "Link Locked", isPub ? "public" : "lock", isPub ? "text-green-400" : "text-md-text-muted");
-                    this.loadDrive(true);
-                } else { this.showToast("Failed to update", "error", "text-red-400"); }
+                if (res.status === 200) { this.showToast(isPub ? "Link Live!" : "Link Locked", isPub ? "public" : "lock", isPub ? "text-green-400" : "text-md-text-muted"); this.loadDrive(true); } 
+                else { this.showToast("Failed to update", "error", "text-red-400"); }
                 resolve(true);
             };
         });
@@ -214,6 +203,7 @@ const ui = {
         state.selected.clear(); this.updateSelectionUI(); this.showToast(`${success} items updated`, "check_circle", "text-green-400"); this.loadDrive(true);
     },
 
+    // THE FIX: Bulletproof Smart Positioning Engine
     openItemMenu(e, id, type, name, isPublic = false, shareId, isStarred = false, isTrash = false) {
         e.stopPropagation(); 
         document.getElementById('newMenu')?.classList.add('hidden'); document.getElementById('bulkMenu')?.classList.add('hidden'); document.getElementById('sortMenu')?.classList.add('hidden');
@@ -252,24 +242,38 @@ const ui = {
         
         menu.classList.remove('hidden'); 
         
-        const rect = e.currentTarget.getBoundingClientRect(); 
-        const menuHeight = menu.offsetHeight;
-        
-        if (rect.bottom + menuHeight > window.innerHeight) {
-            menu.style.top = `${rect.top + window.scrollY - menuHeight - 8}px`; 
+        // Mobile vs Desktop dynamic placement
+        if (window.innerWidth >= 768) {
+            menu.style.bottom = 'auto'; // Reset mobile anchor
+            const rect = e.currentTarget.getBoundingClientRect(); 
+            const menuHeight = menu.offsetHeight;
+            
+            // Smart collision detection: if it hits the bottom, spawn it ABOVE the button!
+            if (rect.bottom + menuHeight > window.innerHeight) {
+                menu.style.top = `${rect.top + window.scrollY - menuHeight - 8}px`; 
+            } else {
+                menu.style.top = `${rect.bottom + window.scrollY + 8}px`; 
+            }
+            menu.style.left = rect.right - 192 < 10 ? `10px` : `${rect.right - 192}px`; 
         } else {
-            menu.style.top = `${rect.bottom + window.scrollY + 8}px`; 
+            // Strip styles so Tailwind CSS slides it gracefully from the bottom
+            menu.style.top = '';
+            menu.style.left = '';
+            menu.style.bottom = ''; 
         }
-        
-        menu.style.left = rect.right - 192 < 10 ? `10px` : `${rect.right - 192}px`; 
         
         backdrop.classList.remove('hidden');
         menu.classList.add('flex');
         void menu.offsetWidth; 
         
         backdrop.classList.remove('opacity-0');
-        menu.classList.remove('translate-y-full', 'md:scale-95', 'md:opacity-0');
-        menu.classList.add('translate-y-0', 'md:scale-100', 'md:opacity-100');
+        if (window.innerWidth >= 768) {
+            menu.classList.remove('md:scale-95', 'md:opacity-0');
+            menu.classList.add('md:scale-100', 'md:opacity-100');
+        } else {
+            menu.classList.remove('translate-y-full');
+            menu.classList.add('translate-y-0');
+        }
     },
 
     closeItemMenu() {
@@ -278,8 +282,14 @@ const ui = {
         if(!menu || !backdrop) return;
         
         backdrop.classList.add('opacity-0');
-        menu.classList.remove('translate-y-0', 'md:scale-100', 'md:opacity-100');
-        menu.classList.add('translate-y-full', 'md:scale-95', 'md:opacity-0');
+        
+        if (window.innerWidth >= 768) {
+            menu.classList.remove('md:scale-100', 'md:opacity-100');
+            menu.classList.add('md:scale-95', 'md:opacity-0');
+        } else {
+            menu.classList.remove('translate-y-0');
+            menu.classList.add('translate-y-full');
+        }
         
         setTimeout(() => {
             backdrop.classList.add('hidden');
@@ -320,7 +330,6 @@ const ui = {
         this.foldersGrid.innerHTML = ''; this.filesGrid.innerHTML = '';
         let { folders, files } = state.currentData; folders = this.sortArray([...folders]); files = this.sortArray([...files]);
         
-        // THE FIX: Saves the globally sorted file list so the Swiper knows what's next!
         this.currentFiles = files;
         
         const isSelectionMode = state.selected.size > 0; const isList = state.viewMode === 'list';
@@ -396,7 +405,6 @@ const ui = {
         if (res.status === 200) { this.showToast(`Successfully pasted!`, "check_circle", "text-green-400"); this.clearClipboard(); this.loadDrive(true); } else { this.showToast("Failed to paste items", "error", "text-red-400"); }
     },
 
-    // THE FIX: Gallery Engine - Left & Right Navigation
     updatePreviewArrows() {
         const prevBtn = document.getElementById('previewPrevBtn');
         const nextBtn = document.getElementById('previewNextBtn');
@@ -428,7 +436,6 @@ const ui = {
     },
 
     openPreview(id, name) {
-        // Track our exact location in the file array for swiping
         this.previewIndex = this.currentFiles?.findIndex(f => String(f.id) === String(id));
         this.updatePreviewArrows();
 
