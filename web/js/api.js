@@ -6,8 +6,6 @@ const api = {
             options.credentials = 'same-origin'; 
             const res = await fetch(`${API_URL}${endpoint}`, options);
             const data = await res.json();
-            
-            // Intercept frozen errors safely
             if (res.status === 403 && data.error === "ACCOUNT_FROZEN") {
                 if(typeof ui !== 'undefined') ui.showToast("Account frozen. Read-only mode.", "ac_unit", "text-blue-400");
             }
@@ -25,10 +23,20 @@ const api = {
         return this.request(endpoint); 
     },
     
+    async getStorage() { return this.request('/storage'); },
+    
     async createFolder(name, parentId) { return this.request('/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, parentId }) }); },
+    async renameItem(id, type, newName) { return this.request('/rename', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, type, newName }) }); },
     async deleteFile(id) { return this.request(`/delete/${id}`, { method: 'DELETE' }); },
     async deleteFolder(id) { return this.request(`/folders/${id}`, { method: 'DELETE' }); },
-    async toggleShare(id, type, isPublic) { return this.request(`/share/${type}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPublic }) }); },
+    
+    // NEW SECURE SHARE UPDATE
+    async toggleShare(id, type, isPublic, pin = '', expiryDays = 0) { 
+        return this.request(`/share/${type}/${id}`, { 
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ isPublic, pin, expiryDays }) 
+        }); 
+    },
     
     async toggleTrash(id, type, isTrash) { return this.request(`/trash/${type}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isTrash }) }); },
     async toggleStar(id, type, isStarred) { return this.request(`/star/${type}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isStarred }) }); },
@@ -53,7 +61,6 @@ const api = {
         } catch (err) { return false; }
     },
 
-    // --- NEW: ADMIN ENDPOINTS ---
     async adminLogin(password) { return this.request('/admin/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password}) }); },
     async adminGetUsers() { return this.request('/admin/users'); },
     async adminApprove(id) { return this.request(`/admin/users/${id}/approve`, { method: 'PUT' }); },
