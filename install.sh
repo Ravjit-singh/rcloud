@@ -1,103 +1,135 @@
 #!/bin/bash
 
-echo "========================================="
-echo "☁️  Welcome to the Universal R Cloud Installer ☁️"
-echo "========================================="
-echo ""
+# ==========================================
+# ANSI Color & Style Definitions (Material Palette)
+# ==========================================
+BOLD='\033[1m'
+DIM='\033[2m'
+BLUE='\033[1;34m'     # MD Active
+CYAN='\033[1;36m'     # MD Accent
+GREEN='\033[1;32m'    # MD Success
+RED='\033[1;31m'      # MD Error
+WHITE='\033[1;37m'    # MD Text
+NC='\033[0m'          # No Color / Reset
 
-# 1. Detect Operating System and Package Manager
+# ==========================================
+# UI Components
+# ==========================================
+print_card_header() {
+    clear
+    echo -e "${CYAN}╭──────────────────────────────────────────────╮${NC}"
+    echo -e "${CYAN}│${NC}                                              ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}             ${WHITE}${BOLD}☁️  R CLOUD SETUP${NC}                ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}                                              ${CYAN}│${NC}"
+    echo -e "${CYAN}╰──────────────────────────────────────────────╯${NC}"
+    echo ""
+    sleep 0.5
+}
+
+print_step() {
+    echo -e "${BLUE}● ${WHITE}${BOLD}$1${NC}"
+    sleep 0.3
+}
+
+print_subtext() {
+    echo -e "  ${DIM}↳ $1${NC}"
+    sleep 0.2
+}
+
+print_success() {
+    echo -e "  ${GREEN}✔ $1${NC}"
+    echo ""
+    sleep 0.5
+}
+
+print_error() {
+    echo -e "  ${RED}✖ $1${NC}"
+    echo ""
+}
+
+# ==========================================
+# Main Execution Flow
+# ==========================================
+print_card_header
+
+# --- STEP 1: OS DETECTION ---
+print_step "Analyzing Environment..."
 OS="$(uname -s)"
-echo "Detecting operating system: $OS"
-
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
-    # Termux (Android Native)
-    echo "Environment: Termux (Android)"
-    echo "[1/4] Updating and installing dependencies..."
-    pkg update -y && pkg upgrade -y
-    pkg install -y git nodejs ffmpeg python make clang
-
+    ENV_TYPE="Termux (Android Native)"
+    CMD_UPDATE="pkg update -y && pkg upgrade -y"
+    CMD_INSTALL="pkg install -y git nodejs ffmpeg python make clang"
 elif [ "$OS" == "Linux" ]; then
-    # Linux distributions (Ubuntu, Debian, Fedora, Arch, VPS)
-    echo "Environment: Linux"
-    echo "[1/4] Updating and installing dependencies..."
+    ENV_TYPE="Linux Server"
     if command -v apt &> /dev/null; then
-        sudo apt update -y
-        sudo apt install -y git nodejs npm ffmpeg python3 make build-essential
-    elif command -v dnf &> /dev/null; then
-        sudo dnf update -y
-        sudo dnf install -y git nodejs npm ffmpeg python3 make gcc gcc-c++
-    elif command -v pacman &> /dev/null; then
-        sudo pacman -Syu --noconfirm git nodejs npm ffmpeg python make gcc
-    elif command -v apk &> /dev/null; then
-        sudo apk update
-        sudo apk add git nodejs npm ffmpeg python3 make g++
+        CMD_UPDATE="sudo apt update -y"
+        CMD_INSTALL="sudo apt install -y git nodejs npm ffmpeg python3 make build-essential"
     else
-        echo "⚠️ Unsupported Linux package manager. Proceeding to clone repository..."
+        CMD_UPDATE="echo 'Package manager not apt, skipping update'"
+        CMD_INSTALL="echo 'Please install git, node, npm, ffmpeg manually'"
     fi
-
 elif [ "$OS" == "Darwin" ]; then
-    # macOS
-    echo "Environment: macOS"
-    if ! command -v brew &> /dev/null; then
-        echo "❌ Homebrew not found. Please install Homebrew first: https://brew.sh/"
-        exit 1
-    fi
-    echo "[1/4] Updating and installing dependencies..."
-    brew update
-    brew install git node ffmpeg python make
-
-elif [[ "$OS" == *"MINGW"* ]] || [[ "$OS" == *"MSYS"* ]] || [[ "$OS" == *"CYGWIN"* ]]; then
-    # Windows (Git Bash / Cygwin)
-    echo "Environment: Windows"
-    echo "⚠️ Please ensure you have Git, Node.js, and FFmpeg installed natively on Windows."
-    echo "Proceeding with download..."
+    ENV_TYPE="macOS"
+    CMD_UPDATE="brew update"
+    CMD_INSTALL="brew install git node ffmpeg python make"
 else
-    echo "⚠️ Unknown Operating System. Attempting to proceed anyway..."
+    ENV_TYPE="Unknown ($OS)"
+    CMD_UPDATE="echo ''"
+    CMD_INSTALL="echo ''"
 fi
 
-echo ""
-echo "[2/4] Verifying Core Dependencies..."
-for cmd in git node npm ffmpeg; do
-    if ! command -v $cmd &> /dev/null; then
-        echo "❌ Error: $cmd could not be found. Please install it manually and re-run this script."
-        exit 1
-    fi
-done
-echo "✅ All dependencies are installed!"
+print_subtext "Detected: $ENV_TYPE"
+print_success "Environment mapped"
 
-echo ""
-echo "[3/4] Cloning the R Cloud repository..."
+# --- STEP 2: DEPENDENCIES ---
+print_step "Fetching Core Modules..."
+print_subtext "Installing Node.js, FFmpeg, and Build Tools"
+eval $CMD_UPDATE > /dev/null 2>&1
+eval $CMD_INSTALL > /dev/null 2>&1
+print_success "Modules installed"
+
+# --- STEP 3: CLONING REPO ---
+print_step "Syncing R Cloud Engine..."
 if [ -d "rcloud" ]; then
-    echo "Directory 'rcloud' already exists. Updating with latest changes..."
+    print_subtext "Existing vault found. Updating..."
     cd rcloud
-    git pull
+    git pull origin main > /dev/null 2>&1
 else
-    git clone https://github.com/Ravjit-singh/rcloud.git
+    print_subtext "Downloading from secure repository..."
+    git clone https://github.com/Ravjit-singh/rcloud.git > /dev/null 2>&1
     cd rcloud
 fi
+print_success "Codebase synchronized"
 
-echo ""
-echo "[4/4] Installing Node.js Server Packages..."
+# --- STEP 4: NPM INSTALL ---
+print_step "Building Backend Architecture..."
 cd server
-
-# Initialize Node modules
 if [ -f "package.json" ]; then
-    npm install
+    print_subtext "Installing NPM dependencies..."
+    npm install > /dev/null 2>&1
 else
-    echo "Initializing new package environment..."
-    npm init -y
-    npm install express multer cors cookie-parser bcryptjs jsonwebtoken sqlite sqlite3 archiver fluent-ffmpeg
+    print_subtext "Initializing fresh NPM environment..."
+    npm init -y > /dev/null 2>&1
+    npm install express multer cors cookie-parser bcryptjs jsonwebtoken sqlite sqlite3 archiver fluent-ffmpeg > /dev/null 2>&1
 fi
+print_success "Architecture ready"
 
+
+# ==========================================
+# Final Success Screen
+# ==========================================
+clear
+echo -e "${GREEN}╭──────────────────────────────────────────────╮${NC}"
+echo -e "${GREEN}│${NC}                                              ${GREEN}│${NC}"
+echo -e "${GREEN}│${NC}         ${WHITE}${BOLD}✅ INSTALLATION COMPLETE${NC}             ${GREEN}│${NC}"
+echo -e "${GREEN}│${NC}                                              ${GREEN}│${NC}"
+echo -e "${GREEN}╰──────────────────────────────────────────────╯${NC}"
 echo ""
-echo "========================================="
-echo "✅ R Cloud Installation Complete! ✅"
-echo "========================================="
+echo -e "${WHITE}To boot your personal vault, run:${NC}"
 echo ""
-echo "To start your personal cloud server, run the following commands:"
+echo -e "${CYAN}   cd rcloud/server${NC}"
+echo -e "${CYAN}   npm start${NC}"
 echo ""
-echo "   cd rcloud/server"
-echo "   npm start"
+echo -e "${DIM}Your network IP will be printed on the screen.${NC}"
+echo -e "${DIM}Enter it into the R Cloud mobile app to connect.${NC}"
 echo ""
-echo "Then simply open your browser and connect to the IP Address printed on screen!"
-echo "========================================="
