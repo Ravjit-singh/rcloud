@@ -331,12 +331,59 @@ const ui = {
         if (res.status === 200) { this.showToast(`Successfully pasted!`, "check_circle", "text-green-400"); this.clearClipboard(); this.loadDrive(true); } else { this.showToast("Failed to paste items", "error", "text-red-400"); }
     },
 
-    openPreview(id, name) {
-        const ext = name.split('.').pop().toLowerCase(); const modal = document.getElementById('previewModal'); const content = document.getElementById('previewContent'); const downloadBtn = document.getElementById('downloadPreviewBtn'); document.getElementById('previewFilename').textContent = name; downloadBtn.onclick = () => window.location.href = `/api/download/${id}`; content.innerHTML = ''; 
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { content.innerHTML = `<img src="/api/view/${id}" class="max-w-full max-h-full object-contain drop-shadow-2xl">`; } else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { content.innerHTML = `<video src="/api/view/${id}" controls autoplay class="max-w-full max-h-full object-contain drop-shadow-2xl outline-none rounded-md bg-black"></video>`; } else { content.innerHTML = `<div class="flex flex-col items-center text-md-text-muted"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/api/download/${id}" class="px-8 py-3 bg-md-active text-md-accent rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center"><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>`; }
-        modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 50);
+        openPreview(id, name) {
+        const ext = name.split('.').pop().toLowerCase();
+        const modal = document.getElementById('previewModal'); 
+        const content = document.getElementById('previewContent'); 
+        const downloadBtn = document.getElementById('downloadPreviewBtn');
+        
+        document.getElementById('previewFilename').textContent = name; 
+        downloadBtn.onclick = () => window.location.href = `/api/download/${id}`; 
+        
+        // Hide standard modal header for videos so the Netflix UI takes full control
+        const modalHeader = modal.querySelector('div:first-child');
+
+        content.innerHTML = ''; 
+        
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { 
+            modalHeader.classList.remove('hidden');
+            content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0";
+            content.innerHTML = `<img src="/api/view/${id}" class="max-w-full max-h-full object-contain drop-shadow-2xl">`; 
+        } 
+        else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
+            modalHeader.classList.add('hidden'); // Hide the standard bar!
+            content.className = "flex-1 flex items-center justify-center w-full h-full p-0 m-0 bg-black";
+            
+            // THE FIX: Boot up the custom Netflix-style player!
+            RPlayer.init(content, `/api/view/${id}`, name);
+        } 
+        else { 
+            modalHeader.classList.remove('hidden');
+            content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0";
+            content.innerHTML = `<div class="flex flex-col items-center text-md-text-muted"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/api/download/${id}" class="px-8 py-3 bg-md-active text-md-accent rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center"><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>`; 
+        }
+        
+        modal.classList.remove('hidden'); 
+        setTimeout(() => modal.classList.remove('opacity-0'), 50);
     },
-    closePreview() { const modal = document.getElementById('previewModal'); modal.classList.add('opacity-0'); setTimeout(() => { modal.classList.add('hidden'); document.getElementById('previewContent').innerHTML = ''; }, 300); },
+
+    closePreview() { 
+        const modal = document.getElementById('previewModal'); 
+        modal.classList.add('opacity-0'); 
+        
+        // THE FIX: Cleanly destroy the custom video player to free up RAM
+        if (typeof RPlayer !== 'undefined') RPlayer.destroy();
+        
+        setTimeout(() => { 
+            modal.classList.add('hidden'); 
+            document.getElementById('previewContent').innerHTML = ''; 
+            
+            // Restore standard modal header in case the next file is a photo
+            const modalHeader = modal.querySelector('div:first-child');
+            if(modalHeader) modalHeader.classList.remove('hidden');
+        }, 300); 
+    },
+
 
     uploadQueue(files) {
         const panel = document.getElementById('uploadQueuePanel'); const list = document.getElementById('uploadList'); panel.classList.remove('hidden');
