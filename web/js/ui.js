@@ -203,7 +203,6 @@ const ui = {
         state.selected.clear(); this.updateSelectionUI(); this.showToast(`${success} items updated`, "check_circle", "text-green-400"); this.loadDrive(true);
     },
 
-    // THE FIX: Bulletproof Smart Positioning Engine
     openItemMenu(e, id, type, name, isPublic = false, shareId, isStarred = false, isTrash = false) {
         e.stopPropagation(); 
         document.getElementById('newMenu')?.classList.add('hidden'); document.getElementById('bulkMenu')?.classList.add('hidden'); document.getElementById('sortMenu')?.classList.add('hidden');
@@ -242,13 +241,10 @@ const ui = {
         
         menu.classList.remove('hidden'); 
         
-        // Mobile vs Desktop dynamic placement
         if (window.innerWidth >= 768) {
-            menu.style.bottom = 'auto'; // Reset mobile anchor
+            menu.style.bottom = 'auto'; 
             const rect = e.currentTarget.getBoundingClientRect(); 
             const menuHeight = menu.offsetHeight;
-            
-            // Smart collision detection: if it hits the bottom, spawn it ABOVE the button!
             if (rect.bottom + menuHeight > window.innerHeight) {
                 menu.style.top = `${rect.top + window.scrollY - menuHeight - 8}px`; 
             } else {
@@ -256,10 +252,7 @@ const ui = {
             }
             menu.style.left = rect.right - 192 < 10 ? `10px` : `${rect.right - 192}px`; 
         } else {
-            // Strip styles so Tailwind CSS slides it gracefully from the bottom
-            menu.style.top = '';
-            menu.style.left = '';
-            menu.style.bottom = ''; 
+            menu.style.top = ''; menu.style.left = ''; menu.style.bottom = ''; 
         }
         
         backdrop.classList.remove('hidden');
@@ -405,16 +398,17 @@ const ui = {
         if (res.status === 200) { this.showToast(`Successfully pasted!`, "check_circle", "text-green-400"); this.clearClipboard(); this.loadDrive(true); } else { this.showToast("Failed to paste items", "error", "text-red-400"); }
     },
 
+    // THE FIX: Strict Visibility Class Toggle for Arrows!
     updatePreviewArrows() {
         const prevBtn = document.getElementById('previewPrevBtn');
         const nextBtn = document.getElementById('previewNextBtn');
         if (!prevBtn || !nextBtn) return;
         
-        if (this.previewIndex > 0) prevBtn.style.display = 'flex';
-        else prevBtn.style.display = 'none';
+        if (this.previewIndex > 0) prevBtn.classList.remove('invisible');
+        else prevBtn.classList.add('invisible');
         
-        if (this.currentFiles && this.previewIndex < this.currentFiles.length - 1) nextBtn.style.display = 'flex';
-        else nextBtn.style.display = 'none';
+        if (this.currentFiles && this.previewIndex < this.currentFiles.length - 1) nextBtn.classList.remove('invisible');
+        else nextBtn.classList.add('invisible');
     },
 
     previewNext(e) {
@@ -446,8 +440,9 @@ const ui = {
         
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { 
             if(modalHeader) modalHeader.classList.remove('hidden');
+            // THE FIX: Removed 'pointer-events-none' from the image tag to restore native Pinch-To-Zoom!
             content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0 select-none";
-            content.innerHTML = `<img src="/api/view/${id}" class="max-w-full max-h-full object-contain drop-shadow-2xl pointer-events-none">`; 
+            content.innerHTML = `<img src="/api/view/${id}" class="max-w-full max-h-full object-contain drop-shadow-2xl">`; 
         } else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
             if(modalHeader) modalHeader.classList.add('hidden');
             content.className = "flex-1 flex items-center justify-center w-full h-full p-0 m-0 bg-black select-none";

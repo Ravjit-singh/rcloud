@@ -8,7 +8,7 @@ const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const archiver = require('archiver'); // FIX: Corrected Archiver Import
+const archiver = require('archiver'); // THE FIX: Correct library import
 const { initDB } = require('./db');
 
 const ADMIN_PASSWORD = 'admin'; 
@@ -27,7 +27,6 @@ const FILES_DIR = path.join(__dirname, 'files');
 const THUMBS_DIR = path.join(__dirname, 'thumbs');
 const WEB_DIR = path.join(__dirname, '../web');
 
-// FIX: Relaxed CORS to allow APK Wrappers & Hotspots to send cookies seamlessly
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
@@ -85,9 +84,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ==========================================
-//               AUTH ROUTES
-// ==========================================
 app.post('/api/register', rateLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Required" });
@@ -106,7 +102,6 @@ app.post('/api/login', rateLimiter, async (req, res) => {
         if (user.is_approved === 0) { handleLoginFailure(req); return res.status(403).json({ error: "Account pending admin approval." }); }
         handleLoginSuccess(req);
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        // FIX: sameSite 'lax' ensures cookies save correctly on mobile network connections!
         res.cookie('auth_token', token, { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 86400000 });
         res.json({ success: true, username: user.username });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
@@ -124,9 +119,6 @@ app.put('/api/password', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Error" }); }
 });
 
-// ==========================================
-//               ADMIN ROUTES
-// ==========================================
 app.post('/api/admin/login', rateLimiter, (req, res) => {
     const { password } = req.body;
     if (password === ADMIN_PASSWORD) { handleLoginSuccess(req); const token = jwt.sign({ role: 'admin' }, ADMIN_SECRET, { expiresIn: '12h' }); res.cookie('admin_token', token, { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 43200000 }); res.json({ success: true }); } 
@@ -167,9 +159,6 @@ setInterval(async () => {
     try { const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').replace('Z', ''); const doomedUsers = await app.locals.db.all(`SELECT id, username FROM users WHERE is_frozen = 1 AND frozen_at <= ?`, [tenDaysAgo]); for (let u of doomedUsers) await destroyUser(u.id); } catch(e) { }
 }, 1000 * 60 * 60);
 
-// ==========================================
-//             STORAGE ENGINE
-// ==========================================
 app.get('/api/storage', authenticateToken, async (req, res) => {
     try {
         const userSizeRow = await app.locals.db.get(`SELECT SUM(size) as total FROM files WHERE user_id = ?`, [req.user.id]);
@@ -189,9 +178,6 @@ app.get('/api/storage', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed to calculate storage" }); }
 });
 
-// ==========================================
-//               DRIVE ENGINE
-// ==========================================
 app.get(['/api/drive', '/api/drive/:folderId'], authenticateToken, async (req, res) => {
     const folderId = req.params.folderId || null; const view = req.query.view || 'home';
     try {
@@ -329,6 +315,52 @@ app.delete('/api/folders/:id', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
+// THE FIX: Massive update to Archiver ZIP stream execution
+app.post('/api/download/zip', authenticateToken, async (req, res) => {
+    const { items } = req.body;
+    if (!items || items.length === 0) return res.status(400).send("No items selected");
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="RCloud_Export_${Date.now()}.zip"`);
+    
+    // Fix: Boot up archiver factory method instead of new ZipArchive class
+    const archive = archiver('zip', { zlib: { level: 5 } });
+    
+    archive.on('warning', err => { if (err.code !== 'ENOENT') console.warn(err); });
+    archive.on('error', err => { if (!res.headersSent) res.status(500).end(); });
+    archive.pipe(res);
+
+    async function addFolderToArchive(folderId, currentPath) {
+        const files = await app.locals.db.all(`SELECT * FROM files WHERE folder_id = ? AND user_id = ? AND is_trash = 0`, [folderId, req.user.id]);
+        for (let f of files) {
+            try { await fs.access(path.join(FILES_DIR, f.stored_name)); archive.file(path.join(FILES_DIR, f.stored_name), { name: (currentPath ? currentPath + '/' : '') + f.original_name }); } catch(e) {}
+        }
+        const subfolders = await app.locals.db.all(`SELECT * FROM folders WHERE parent_id = ? AND user_id = ? AND is_trash = 0`, [folderId, req.user.id]);
+        for (let sub of subfolders) {
+            const safeName = sub.name.replace(/[^a-zA-Z0-9-_ \.]/g, '_');
+            const newPath = (currentPath ? currentPath + '/' : '') + safeName;
+            archive.append(null, { name: newPath + '/' });
+            await addFolderToArchive(sub.id, newPath);
+        }
+    }
+
+    try {
+        for (let item of items) {
+            if (item.type === 'file') {
+                const f = await app.locals.db.get(`SELECT * FROM files WHERE id = ? AND user_id = ?`, [item.id, req.user.id]);
+                if (f) { try { await fs.access(path.join(FILES_DIR, f.stored_name)); archive.file(path.join(FILES_DIR, f.stored_name), { name: f.original_name }); } catch(e) {} }
+            } else if (item.type === 'folder') {
+                const folder = await app.locals.db.get(`SELECT * FROM folders WHERE id = ? AND user_id = ?`, [item.id, req.user.id]);
+                if (folder) {
+                    const safeName = folder.name.replace(/[^a-zA-Z0-9-_ \.]/g, '_');
+                    archive.append(null, { name: safeName + '/' });
+                    await addFolderToArchive(item.id, safeName);
+                }
+            }
+        }
+        await archive.finalize();
+    } catch (err) { if (!res.headersSent) res.status(500).end(); }
+});
+
 app.post('/api/copy', authenticateToken, async (req, res) => {
     const { targetFolder, items } = req.body;
     try {
@@ -370,9 +402,6 @@ app.put('/api/move', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
-// ==========================================
-//   FIX: THUMBNAIL ENGINE (FFMPEG & SHARP)
-// ==========================================
 async function serveThumbnail(fileRecord, res) {
     if (!fileRecord) return res.status(404).end();
     const ext = fileRecord.original_name.split('.').pop().toLowerCase();
@@ -385,41 +414,28 @@ async function serveThumbnail(fileRecord, res) {
     const thumbPathJpg = path.join(THUMBS_DIR, fileRecord.stored_name + '.jpg');
     const originalPath = path.join(FILES_DIR, fileRecord.stored_name);
 
-    // Try to serve cached thumbnails first
     try { await fs.access(thumbPathWebp); return res.sendFile(thumbPathWebp); } catch (e) { } 
     try { await fs.access(thumbPathJpg); return res.sendFile(thumbPathJpg); } catch (e) { } 
 
     if (isImage) {
-        if (!sharp) return res.sendFile(originalPath); // Just send raw image if sharp is missing
+        if (!sharp) return res.sendFile(originalPath);
         try {
             await sharp(originalPath).resize(200, 200, { fit: 'cover' }).webp({ quality: 80 }).toFile(thumbPathWebp); 
             return res.sendFile(thumbPathWebp);
         } catch(e) { return res.sendFile(originalPath); }
     } else if (isVideo) {
-        if (!ffmpeg) return res.status(404).end(); // If no ffmpeg, return 404 (frontend will show movie icon)
-        
+        if (!ffmpeg) return res.status(404).end();
         try {
-            // Extract a single raw JPG frame from the video
             await new Promise((resolve, reject) => { 
-                ffmpeg(originalPath)
-                    .on('end', resolve)
-                    .on('error', reject)
-                    .screenshots({ count: 1, timestamps: ['10%'], folder: THUMBS_DIR, filename: fileRecord.stored_name + '.jpg', size: '200x200' }); 
+                ffmpeg(originalPath).on('end', resolve).on('error', reject).screenshots({ count: 1, timestamps: ['10%'], folder: THUMBS_DIR, filename: fileRecord.stored_name + '.jpg', size: '200x200' }); 
             });
-            
             if (sharp) {
-                // If sharp exists, optimize the JPG frame into WEBP
                 try {
                     await sharp(thumbPathJpg).webp({ quality: 80 }).toFile(thumbPathWebp); 
                     await fs.unlink(thumbPathJpg).catch(()=>{}); 
                     return res.sendFile(thumbPathWebp);
-                } catch(err) {
-                    return res.sendFile(thumbPathJpg);
-                }
-            } else {
-                // FIX: If sharp is missing, just serve the raw JPG frame!
-                return res.sendFile(thumbPathJpg);
-            }
+                } catch(err) { return res.sendFile(thumbPathJpg); }
+            } else { return res.sendFile(thumbPathJpg); }
         } catch(e) { return res.status(404).end(); }
     }
 }
@@ -447,9 +463,6 @@ app.get('/api/download/:id', authenticateToken, async (req, res) => {
     try { const fileRecord = await app.locals.db.get(`SELECT original_name, stored_name FROM files WHERE id = ? AND user_id = ?`, [req.params.id, req.user.id]); if (!fileRecord) return res.status(404).send("Not found"); res.download(path.join(FILES_DIR, fileRecord.stored_name), fileRecord.original_name); } catch (err) { res.status(500).send("Error"); }
 });
 
-// ==========================================
-//          SECURE SHARING ENGINE
-// ==========================================
 async function serveProtectedContent(req, res, shareId, renderCallback) {
     let item = await app.locals.db.get(`SELECT * FROM files WHERE share_id = ?`, [shareId]);
     let type = 'file';
@@ -651,7 +664,9 @@ app.get('/share/download/zip/:share_id', async (req, res) => {
         const safeName = folder.name.replace(/[^a-zA-Z0-9-_ \.]/g, '_');
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${safeName}_Export.zip"`);
-        const archive = archiver('zip', { zlib: { level: 5 } });
+        
+        const archive = archiver('zip', { zlib: { level: 5 } }); // THE FIX: Correct archive call
+        
         archive.on('warning', err => { if (err.code !== 'ENOENT') console.warn(err); });
         archive.on('error', err => { if (!res.headersSent) res.status(500).end(); });
         archive.pipe(res);
@@ -670,22 +685,15 @@ app.get('/share/download/zip/:share_id', async (req, res) => {
 async function startServer() {
     await ensureDirExists();
     app.locals.db = await initDB();
-    app.listen(PORT, () => console.log(`🚀 R Cloud Engine running live on http://localhost:${PORT}`));
-}
-async function startServer() {
-    await ensureDirExists();
-    app.locals.db = await initDB();
     app.listen(PORT, () => {
         console.log(`\n🚀 R Cloud Engine Booted Successfully!`);
         console.log(`========================================`);
         console.log(`🏠 Local Access:  http://localhost:${PORT}`);
-        
-        // Dynamically fetch and print Hotspot / Wi-Fi IP address
         const nets = os.networkInterfaces();
         for (const name of Object.keys(nets)) {
             for (const net of nets[name]) {
                 if (net.family === 'IPv4' && !net.internal) {
-                    console.log(`📡 Hotspot/Wi-Fi: http://${net.address}:${PORT}`);
+                    console.log(`📡 Network Access: http://${net.address}:${PORT}`);
                 }
             }
         }
@@ -693,4 +701,3 @@ async function startServer() {
     });
 }
 startServer();
-
