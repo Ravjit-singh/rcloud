@@ -4,6 +4,11 @@ const ui = {
     toastTimer: null,
     currentFiles: [], 
     previewIndex: 0,
+    
+    // Memory Pointers for the Pinch-to-Zoom Engine
+    _imgTouchStart: null,
+    _imgTouchMove: null,
+    _imgTouchEnd: null,
 
     toggleSidebar(forceClose = false) {
         const sidebar = document.getElementById('mainSidebar');
@@ -44,15 +49,19 @@ const ui = {
     confirmModal(title, message, isDestructive = true, icon = 'warning') {
         return new Promise((resolve) => {
             const modal = document.getElementById('customConfirmModal');
-            if(!modal) return resolve(false);
+            const box = document.getElementById('confirmBox');
+            if(!modal || !box) return resolve(false);
             document.getElementById('confirmModalTitle').textContent = title;
             document.getElementById('confirmModalDesc').textContent = message;
             const iconEl = document.getElementById('confirmModalIcon');
             iconEl.textContent = icon; iconEl.className = `material-symbols-rounded text-[32px] mr-3 ${isDestructive ? 'text-red-400' : 'text-md-accent'}`;
             const submitBtn = document.getElementById('confirmModalSubmitBtn');
-            submitBtn.className = isDestructive ? "bg-red-400 text-black font-medium px-6 py-2.5 rounded-full hover:bg-red-500 transition shadow-sm" : "bg-md-accent text-[#001d35] font-medium px-6 py-2.5 rounded-full hover:bg-[#c2e7ff] transition shadow-sm";
-            modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 10);
-            const cleanup = () => { modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 300); document.getElementById('confirmModalCancelBtn').removeEventListener('click', onCancel); submitBtn.removeEventListener('click', onSubmit); };
+            submitBtn.className = isDestructive ? "bg-red-400 text-black font-medium px-6 py-2.5 rounded-full hover:bg-red-500 transition-all active:scale-95 shadow-sm" : "bg-md-accent text-[#001d35] font-medium px-6 py-2.5 rounded-full hover:bg-[#c2e7ff] transition-all active:scale-95 shadow-sm";
+            
+            modal.classList.remove('hidden'); 
+            setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); box.classList.add('scale-100'); }, 10);
+            
+            const cleanup = () => { box.classList.remove('scale-100'); box.classList.add('scale-95'); modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 300); document.getElementById('confirmModalCancelBtn').removeEventListener('click', onCancel); submitBtn.removeEventListener('click', onSubmit); };
             const onCancel = () => { cleanup(); resolve(false); };
             const onSubmit = () => { cleanup(); resolve(true); };
             document.getElementById('confirmModalCancelBtn').addEventListener('click', onCancel);
@@ -63,14 +72,18 @@ const ui = {
     promptModal(title, placeholder = "", defaultValue = "", description = null) {
         return new Promise((resolve) => {
             const modal = document.getElementById('customPromptModal');
-            if(!modal) return resolve(null);
+            const box = document.getElementById('promptBox');
+            if(!modal || !box) return resolve(null);
             document.getElementById('promptModalTitle').textContent = title;
             const descEl = document.getElementById('promptModalDesc');
             if (description) { descEl.textContent = description; descEl.classList.remove('hidden'); } else { descEl.classList.add('hidden'); }
             const input = document.getElementById('promptModalInput');
             input.placeholder = placeholder; input.value = defaultValue;
-            modal.classList.remove('hidden'); setTimeout(() => { modal.classList.remove('opacity-0'); input.focus(); }, 10);
-            const cleanup = () => { modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 300); document.getElementById('promptModalCancelBtn').removeEventListener('click', onCancel); document.getElementById('promptModalSubmitBtn').removeEventListener('click', onSubmit); };
+            
+            modal.classList.remove('hidden'); 
+            setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); box.classList.add('scale-100'); input.focus(); }, 10);
+            
+            const cleanup = () => { box.classList.remove('scale-100'); box.classList.add('scale-95'); modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 300); document.getElementById('promptModalCancelBtn').removeEventListener('click', onCancel); document.getElementById('promptModalSubmitBtn').removeEventListener('click', onSubmit); };
             const onCancel = () => { cleanup(); resolve(null); }; const onSubmit = () => { cleanup(); resolve(input.value.trim() || null); };
             document.getElementById('promptModalCancelBtn').addEventListener('click', onCancel); document.getElementById('promptModalSubmitBtn').addEventListener('click', onSubmit);
             input.onkeydown = (e) => { if(e.key === 'Enter') onSubmit(); };
@@ -80,7 +93,8 @@ const ui = {
     openShareModal(id, type, isPublic, shareId) {
         return new Promise((resolve) => {
             const modal = document.getElementById('customShareModal');
-            if(!modal) return resolve(false);
+            const box = document.getElementById('shareBox');
+            if(!modal || !box) return resolve(false);
             
             const toggle = document.getElementById('shareToggleSwitch');
             const options = document.getElementById('shareAdvancedOptions');
@@ -103,8 +117,11 @@ const ui = {
             };
             
             toggle.onchange = updateUI; updateUI();
-            modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 10);
-            const cleanup = () => { modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 300); };
+            
+            modal.classList.remove('hidden'); 
+            setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); box.classList.add('scale-100'); }, 10);
+            
+            const cleanup = () => { box.classList.remove('scale-100'); box.classList.add('scale-95'); modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 300); };
 
             document.getElementById('shareModalCancelBtn').onclick = () => { cleanup(); resolve(false); };
             document.getElementById('shareModalSaveBtn').onclick = async () => {
@@ -163,7 +180,7 @@ const ui = {
         else if (state.currentView === 'trash') { container.innerHTML = `<div class="flex items-center justify-between w-full"><button class="hover:bg-md-hover px-3 py-1.5 -ml-3 rounded-[8px] transition flex items-center text-red-400 font-medium"><span class="material-symbols-rounded filled mr-2">delete</span> Trash</button>${state.isFrozen ? '' : '<button onclick="ui.emptyTrash()" class="text-sm font-medium text-red-400 bg-red-400/10 hover:bg-red-400 hover:text-black px-4 py-1.5 rounded-full transition border border-red-400/50 shadow-sm shrink-0 ml-4">Empty Trash</button>'}</div>`; } 
         else {
             state.path.forEach((crumb, index) => {
-                const btn = document.createElement('button'); btn.className = "hover:bg-md-hover px-3 py-1.5 rounded-[8px] transition flex items-center shrink-0"; btn.innerHTML = `<span class="font-medium">${crumb.name}</span>`;
+                const btn = document.createElement('button'); btn.className = "hover:bg-md-hover px-3 py-1.5 rounded-[8px] transition flex items-center shrink-0 active:scale-95"; btn.innerHTML = `<span class="font-medium">${crumb.name}</span>`;
                 btn.onclick = () => { state.path = state.path.slice(0, index + 1); state.currentFolderId = crumb.id; this.loadDrive(true); };
                 if (index > 0) { const sep = document.createElement('span'); sep.className = "material-symbols-rounded text-md-text-muted mx-1 shrink-0"; sep.textContent = "chevron_right"; container.appendChild(sep); } 
                 else { btn.classList.add("-ml-3"); }
@@ -324,6 +341,7 @@ const ui = {
         let { folders, files } = state.currentData; folders = this.sortArray([...folders]); files = this.sortArray([...files]);
         
         this.currentFiles = files;
+        let animDelay = 0; // THE FIX: Global stagger clock for animations
         
         const isSelectionMode = state.selected.size > 0; const isList = state.viewMode === 'list';
         const foldersHeader = document.getElementById('foldersHeader'); const filesHeader = document.getElementById('filesHeader');
@@ -331,7 +349,7 @@ const ui = {
         if (folders.length === 0 && files.length === 0) {
             if (foldersHeader) foldersHeader.classList.add('hidden'); if (filesHeader) filesHeader.classList.add('hidden'); this.filesGrid.className = '';
             let emptyIcon = 'folder_open'; if (state.currentView === 'starred') emptyIcon = 'star'; if (state.currentView === 'trash') emptyIcon = 'delete';
-            this.filesGrid.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-24 text-md-text-muted"><span class="material-symbols-rounded text-[64px] mb-4 opacity-50">${emptyIcon}</span><p class="text-[16px] font-medium">Nothing to see here</p></div>`; return;
+            this.filesGrid.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-24 text-md-text-muted animate-item"><span class="material-symbols-rounded text-[64px] mb-4 opacity-50">${emptyIcon}</span><p class="text-[16px] font-medium">Nothing to see here</p></div>`; return;
         }
 
         this.foldersGrid.className = isList ? 'flex flex-col mb-8' : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-8';
@@ -345,13 +363,16 @@ const ui = {
                 const card = document.createElement('div');
                 card.onclick = () => { if (isSelectionMode) { this.toggleSelect(safeId, 'folder', f.name); } else { if (f.is_trash !== 1) { state.currentFolderId = f.id; state.path.push({ id: f.id, name: f.name }); this.loadDrive(true); } } };
                 
+                // Active/Hover States added to cards for tactile feedback
                 if (isList) {
-                    card.className = `flex items-center justify-between p-3 border-b border-[#444746] ${bgClass} hover:bg-md-hover transition cursor-pointer group`;
+                    card.className = `animate-item flex items-center justify-between p-3 border-b border-[#444746] ${bgClass} hover:bg-md-hover transition-colors cursor-pointer group active:bg-md-surface-container`;
                     card.innerHTML = `<div class="flex items-center flex-1 overflow-hidden pointer-events-none"><div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}')">${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px]">check_circle</span>` : `<span class="material-symbols-rounded filled text-md-text-muted text-[24px] group-hover:text-md-text transition">${folderIconName}</span>`}</div><span class="text-[14px] font-medium text-md-text truncate">${f.name}</span>${starBadge}</div><div class="flex items-center shrink-0 w-32 hidden md:flex text-md-text-muted text-[13px]">${this.formatDate(f.date)}</div><div class="flex items-center shrink-0 w-20 hidden md:flex text-md-text-muted text-[13px]">--</div><div class="flex items-center shrink-0 ml-4 pointer-events-auto"><button onclick="ui.openItemMenu(event, '${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}', ${isShared}, '${f.share_id}', ${f.is_starred === 1}, ${f.is_trash === 1})" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[20px] transition p-1">more_vert</button></div>`;
                 } else {
-                    card.className = `flex justify-between items-center ${bgClass} rounded-[16px] py-3.5 px-4 cursor-pointer transition border group`;
-                    card.innerHTML = `<div class="flex items-center overflow-hidden w-full pointer-events-none"><div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}')">${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[28px]">check_circle</span>` : `<span class="material-symbols-rounded filled text-md-text-muted text-[28px] transition hover:text-md-text">${folderIconName}</span>`}</div><div class="flex flex-col overflow-hidden"><div class="flex items-center"><span class="text-[15px] font-medium text-md-text truncate">${f.name}</span>${starBadge}</div><span class="text-[11px] text-md-text-muted mt-0.5">${this.formatDate(f.date)}</span></div></div><div class="flex items-center shrink-0 ml-2"><button onclick="ui.openItemMenu(event, '${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}', ${isShared}, '${f.share_id}', ${f.is_starred === 1}, ${f.is_trash === 1})" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[24px] transition cursor-pointer pointer-events-auto">more_vert</button></div>`;
+                    card.className = `animate-item flex justify-between items-center ${bgClass} rounded-[16px] py-3.5 px-4 cursor-pointer transition-colors border group active:bg-md-surface-container`;
+                    card.innerHTML = `<div class="flex items-center overflow-hidden w-full pointer-events-none"><div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}')">${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[28px]">check_circle</span>` : `<span class="material-symbols-rounded filled text-md-text-muted text-[28px] transition hover:text-md-text">${folderIconName}</span>`}</div><div class="flex flex-col overflow-hidden"><div class="flex items-center"><span class="text-[15px] font-medium text-md-text truncate">${f.name}</span>${starBadge}</div><span class="text-[11px] text-md-text-muted mt-0.5">${this.formatDate(f.date)}</span></div></div><div class="flex items-center shrink-0 ml-2"><button onclick="ui.openItemMenu(event, '${safeId}', 'folder', '${f.name.replace(/'/g, "\\'")}', ${isShared}, '${f.share_id}', ${f.is_starred === 1}, ${f.is_trash === 1})" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[24px] transition cursor-pointer pointer-events-auto active:scale-90">more_vert</button></div>`;
                 }
+                card.style.animationDelay = `${animDelay * 0.04}s`;
+                animDelay++;
                 this.foldersGrid.appendChild(card);
             });
         } else { if (foldersHeader) foldersHeader.classList.add('hidden'); }
@@ -365,7 +386,7 @@ const ui = {
                 card.onclick = () => { if (isSelectionMode) this.toggleSelect(safeId, 'file', file.name); else if (file.is_trash !== 1) this.openPreview(safeId, file.name); };
 
                 if (isList) {
-                    card.className = `flex items-center justify-between p-3 border-b border-[#444746] ${bgClass} hover:bg-md-hover transition cursor-pointer group`;
+                    card.className = `animate-item flex items-center justify-between p-3 border-b border-[#444746] ${bgClass} hover:bg-md-hover transition-colors cursor-pointer group active:bg-md-surface-container`;
                     card.innerHTML = `<div class="flex items-center flex-1 overflow-hidden pointer-events-none"><div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}')">${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px]">check_circle</span>` : `<span class="material-symbols-rounded filled ${fileType.color} text-[24px]">${fileType.icon}</span>`}</div><span class="text-[14px] font-medium text-md-text truncate">${file.name}</span>${starBadge}</div><div class="flex items-center shrink-0 w-32 hidden md:flex text-md-text-muted text-[13px]">${this.formatDate(file.date)}</div><div class="flex items-center shrink-0 w-20 hidden md:flex text-md-text-muted text-[13px]">${this.formatSize(file.size)}</div><div class="flex items-center shrink-0 ml-4 pointer-events-auto"><button onclick="ui.openItemMenu(event, '${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}', ${isShared}, '${file.share_id}', ${file.is_starred === 1}, ${file.is_trash === 1})" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[20px] transition p-1">more_vert</button></div>`;
                 } else {
                     let thumbnailHTML = `<span class="material-symbols-rounded text-[48px] ${fileType.color}">${fileType.icon}</span>`;
@@ -378,9 +399,11 @@ const ui = {
                             thumbnailHTML += `<div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-[8px] z-20 pointer-events-none"><span class="material-symbols-rounded text-white drop-shadow-lg text-[32px]">play_circle</span></div>`; 
                         } 
                     } 
-                    card.className = `flex flex-col ${bgClass} rounded-[12px] overflow-hidden cursor-pointer transition border group`;
-                    card.innerHTML = `<div class="h-32 bg-md-surface m-1.5 rounded-[8px] flex items-center justify-center relative pointer-events-none">${thumbnailHTML}<div class="absolute top-2 left-2 pointer-events-auto cursor-pointer z-10" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}')">${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px] bg-md-surface rounded-full shadow-sm">check_circle</span>` : `<span class="material-symbols-rounded text-md-text-muted text-[24px] ${isSelectionMode?'opacity-100':'opacity-0 group-hover:opacity-100'} transition drop-shadow-md">radio_button_unchecked</span>`}</div></div><div class="px-3 pb-3 pt-1 flex justify-between items-center relative"><div class="flex flex-col overflow-hidden w-full pointer-events-none"><div class="flex items-center mb-0.5"><span class="material-symbols-rounded filled ${fileType.color} text-[16px] mr-2 shrink-0">${fileType.icon}</span><span class="text-[13px] font-medium text-md-text truncate" title="${file.name}">${file.name}</span>${starBadge}</div><span class="text-[11px] text-md-text-muted">${this.formatSize(file.size)} • ${this.formatDate(file.date)}</span></div><div class="flex items-center shrink-0 ml-2"><button onclick="ui.openItemMenu(event, '${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}', ${isShared}, '${file.share_id}', ${file.is_starred === 1}, ${file.is_trash === 1})" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[24px] transition cursor-pointer pointer-events-auto">more_vert</button></div></div>`;
+                    card.className = `animate-item flex flex-col ${bgClass} rounded-[12px] overflow-hidden cursor-pointer transition-colors border group active:bg-md-surface-container`;
+                    card.innerHTML = `<div class="h-32 bg-[#131314] m-1.5 rounded-[8px] flex items-center justify-center relative pointer-events-none">${thumbnailHTML}<div class="absolute top-2 left-2 pointer-events-auto cursor-pointer z-10" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}')">${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px] bg-md-surface rounded-full shadow-sm">check_circle</span>` : `<span class="material-symbols-rounded text-md-text-muted text-[24px] ${isSelectionMode?'opacity-100':'opacity-0 group-hover:opacity-100'} transition drop-shadow-md">radio_button_unchecked</span>`}</div></div><div class="px-3 pb-3 pt-1 flex justify-between items-center relative"><div class="flex flex-col overflow-hidden w-full pointer-events-none"><div class="flex items-center mb-0.5"><span class="material-symbols-rounded filled ${fileType.color} text-[16px] mr-2 shrink-0">${fileType.icon}</span><span class="text-[13px] font-medium text-md-text truncate" title="${file.name}">${file.name}</span>${starBadge}</div><span class="text-[11px] text-md-text-muted">${this.formatSize(file.size)} • ${this.formatDate(file.date)}</span></div><div class="flex items-center shrink-0 ml-2"><button onclick="ui.openItemMenu(event, '${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}', ${isShared}, '${file.share_id}', ${file.is_starred === 1}, ${file.is_trash === 1})" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[24px] transition cursor-pointer pointer-events-auto active:scale-90">more_vert</button></div></div>`;
                 }
+                card.style.animationDelay = `${animDelay * 0.04}s`;
+                animDelay++;
                 this.filesGrid.appendChild(card);
             });
         } else { if (filesHeader) filesHeader.classList.add('hidden'); }
@@ -398,7 +421,6 @@ const ui = {
         if (res.status === 200) { this.showToast(`Successfully pasted!`, "check_circle", "text-green-400"); this.clearClipboard(); this.loadDrive(true); } else { this.showToast("Failed to paste items", "error", "text-red-400"); }
     },
 
-    // THE FIX: Strict Visibility Class Toggle for Arrows!
     updatePreviewArrows() {
         const prevBtn = document.getElementById('previewPrevBtn');
         const nextBtn = document.getElementById('previewNextBtn');
@@ -415,6 +437,7 @@ const ui = {
         if(e) e.stopPropagation();
         if (this.previewIndex !== undefined && this.previewIndex < this.currentFiles.length - 1) {
             if (typeof RPlayer !== 'undefined') RPlayer.destroy();
+            this.destroyImageGestures(); // FIX: Memory cleanup
             const nextFile = this.currentFiles[this.previewIndex + 1];
             this.openPreview(nextFile.id, nextFile.name);
         }
@@ -424,6 +447,7 @@ const ui = {
         if(e) e.stopPropagation();
         if (this.previewIndex !== undefined && this.previewIndex > 0) {
             if (typeof RPlayer !== 'undefined') RPlayer.destroy();
+            this.destroyImageGestures(); // FIX: Memory cleanup
             const prevFile = this.currentFiles[this.previewIndex - 1];
             this.openPreview(prevFile.id, prevFile.name);
         }
@@ -440,9 +464,14 @@ const ui = {
         
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { 
             if(modalHeader) modalHeader.classList.remove('hidden');
-            // THE FIX: Removed 'pointer-events-none' from the image tag to restore native Pinch-To-Zoom!
-            content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0 select-none";
-            content.innerHTML = `<img src="/api/view/${id}" class="max-w-full max-h-full object-contain drop-shadow-2xl">`; 
+            
+            // THE FIX: Full Screen Image Rendering (No Padding) + Scale Transforms
+            content.className = "flex-1 flex items-center justify-center p-0 overflow-hidden relative mt-16 md:mt-0 select-none";
+            content.innerHTML = `<img id="previewImage" src="/api/view/${id}" class="max-w-full max-h-full object-contain drop-shadow-2xl transition-transform duration-100 ease-out origin-center" style="transform: translate(0px, 0px) scale(1);">`; 
+            
+            // Initiate the powerful Matrix Math Pinch Engine!
+            this.initImageGestures();
+            
         } else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
             if(modalHeader) modalHeader.classList.add('hidden');
             content.className = "flex-1 flex items-center justify-center w-full h-full p-0 m-0 bg-black select-none";
@@ -450,7 +479,7 @@ const ui = {
         } else { 
             if(modalHeader) modalHeader.classList.remove('hidden');
             content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0 select-none";
-            content.innerHTML = `<div class="flex flex-col items-center text-md-text-muted"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/api/download/${id}" class="px-8 py-3 bg-md-active text-md-accent rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center"><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>`; 
+            content.innerHTML = `<div class="flex flex-col items-center text-md-text-muted"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/api/download/${id}" class="px-8 py-3 bg-md-active text-md-accent rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center active:scale-95"><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>`; 
         }
         modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 50);
     },
@@ -458,6 +487,8 @@ const ui = {
     closePreview() { 
         const modal = document.getElementById('previewModal'); modal.classList.add('opacity-0'); 
         if (typeof RPlayer !== 'undefined') RPlayer.destroy();
+        this.destroyImageGestures();
+        
         setTimeout(() => { 
             modal.classList.add('hidden'); document.getElementById('previewContent').innerHTML = ''; 
             const modalHeader = modal.querySelector('div:first-child');
@@ -465,8 +496,85 @@ const ui = {
         }, 300); 
     },
 
+    // ==========================================
+    //    THE FIX: PINCH TO ZOOM & SWIPE ENGINE
+    // ==========================================
+    initImageGestures() {
+        this.destroyImageGestures(); 
+        const content = document.getElementById('previewContent');
+        const img = document.getElementById('previewImage');
+        if (!content || !img) return;
+
+        let scale = 1, pointX = 0, pointY = 0, startX = 0, startY = 0;
+        let pinchDistance = 0, initialScale = 1;
+        let isPanning = false, isSwiping = false;
+
+        this._imgTouchStart = (e) => {
+            if (e.target.closest('button')) return;
+            if (e.touches.length === 2) {
+                e.preventDefault(); // Lock browser zoom
+                pinchDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                initialScale = scale;
+                isSwiping = false;
+            } else if (e.touches.length === 1) {
+                startX = e.touches[0].pageX - pointX;
+                startY = e.touches[0].pageY - pointY;
+                isPanning = scale > 1;
+                isSwiping = scale === 1;
+                this._swipeStartX = e.touches[0].pageX;
+                this._swipeStartY = e.touches[0].pageY;
+            }
+        };
+
+        this._imgTouchMove = (e) => {
+            if (e.target.closest('button')) return;
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                scale = Math.min(Math.max(1, initialScale * (dist / pinchDistance)), 5); // 5x Max Zoom
+                
+                // Keep image centered if completely zoomed out
+                if (scale <= 1.05) { scale = 1; pointX = 0; pointY = 0; }
+                img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+            } else if (e.touches.length === 1 && isPanning) {
+                e.preventDefault();
+                pointX = e.touches[0].pageX - startX;
+                pointY = e.touches[0].pageY - startY;
+                img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+            }
+        };
+
+        this._imgTouchEnd = (e) => {
+            if (e.touches.length === 0) {
+                if (isSwiping && scale === 1) {
+                    const endX = e.changedTouches[0].pageX;
+                    const endY = e.changedTouches[0].pageY;
+                    if (Math.abs(endY - this._swipeStartY) < 100) {
+                        if (endX < this._swipeStartX - 75) this.previewNext();
+                        if (endX > this._swipeStartX + 75) this.previewPrev();
+                    }
+                }
+                isPanning = false; isSwiping = false;
+            }
+        };
+
+        content.addEventListener('touchstart', this._imgTouchStart, { passive: false });
+        content.addEventListener('touchmove', this._imgTouchMove, { passive: false });
+        content.addEventListener('touchend', this._imgTouchEnd);
+    },
+
+    destroyImageGestures() {
+        const content = document.getElementById('previewContent');
+        if (content && this._imgTouchStart) {
+            content.removeEventListener('touchstart', this._imgTouchStart);
+            content.removeEventListener('touchmove', this._imgTouchMove);
+            content.removeEventListener('touchend', this._imgTouchEnd);
+        }
+    },
+
     uploadQueue(files) {
-        const panel = document.getElementById('uploadQueuePanel'); const list = document.getElementById('uploadList'); panel.classList.remove('hidden');
+        const panel = document.getElementById('uploadQueuePanel'); const list = document.getElementById('uploadList'); 
+        panel.classList.remove('hidden'); setTimeout(() => panel.classList.remove('translate-y-4', 'opacity-0'), 10);
         files.forEach(file => {
             const fileId = 'upload-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
             const item = document.createElement('div'); item.id = fileId; item.className = "p-3 border-b border-[#444746] flex flex-col bg-md-surface";
@@ -493,7 +601,12 @@ const ui = {
     },
 
     updateUploadTitle() { const list = document.getElementById('uploadList'); const total = list.children.length; const completed = list.querySelectorAll('.bg-green-400, .bg-red-400').length; const title = document.getElementById('uploadQueueTitle'); if (completed < total) title.textContent = `Uploading ${total - completed} item(s)...`; else title.textContent = `${completed} upload(s) complete`; },
-    closeUploadQueue(e) { e.stopPropagation(); document.getElementById('uploadQueuePanel').classList.add('hidden'); document.getElementById('uploadList').innerHTML = ''; },
+    closeUploadQueue(e) { 
+        e.stopPropagation(); 
+        const panel = document.getElementById('uploadQueuePanel');
+        panel.classList.add('translate-y-4', 'opacity-0');
+        setTimeout(() => { panel.classList.add('hidden'); document.getElementById('uploadList').innerHTML = ''; }, 300);
+    },
 
     async deleteFile(id) {
         if (!(await this.confirmModal("Delete File", "Permanently delete this file?", true, "delete_forever"))) return;
