@@ -466,6 +466,7 @@ app.get('/share/file/:share_id', async (req, res) => {
     });
 });
 
+// BULLETPROOF PUBLIC FOLDER VIEWER WITH NETFLIX PLAYER
 app.get('/share/folder/:share_id', async (req, res) => {
     serveProtectedContent(req, res, req.params.share_id, async (folder, type) => {
         if(type !== 'folder') return res.status(404).send("Not a folder");
@@ -474,7 +475,18 @@ app.get('/share/folder/:share_id', async (req, res) => {
         
         let html = `<!DOCTYPE html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${folder.name} - Public Drive</title>
         <script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0" /><style> .material-symbols-rounded { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; } .material-symbols-rounded.filled { font-variation-settings: 'FILL' 1; } </style>
-        </head><body class="bg-[#131314] text-[#e3e3e3] p-4 md:p-8 font-sans h-screen flex flex-col"><div class="max-w-6xl mx-auto w-full flex-1 flex flex-col"><div class="flex flex-col md:flex-row md:items-center justify-between mb-6"><div class="flex items-center mb-4 md:mb-0"><button onclick="history.back()" class="p-2 mr-2 rounded-full hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">arrow_back</span></button><span class="material-symbols-rounded filled text-[#a8c7fa] text-3xl mr-3">folder_shared</span><h1 class="text-2xl md:text-3xl font-medium truncate">${folder.name}</h1></div><div class="flex items-center space-x-2"><a href="/share/download/zip/${req.params.share_id}" class="bg-[#a8c7fa] text-[#001d35] font-medium px-4 py-2 rounded-full hover:bg-[#c2e7ff] transition flex items-center shadow-sm"><span class="material-symbols-rounded mr-2 text-[20px]">archive</span> Download All</a><div class="relative"><button id="pubSortBtn" onclick="document.getElementById('pubSortMenu').classList.toggle('hidden')" class="p-2 rounded-full text-[#c4c7c5] hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">sort</span></button><div id="pubSortMenu" class="hidden absolute top-12 right-0 bg-[#1e1f20] border border-[#444746] rounded-[12px] shadow-2xl py-2 w-40 z-50"><button onclick="setSort('name')" class="w-full text-left px-4 py-2 text-[14px] text-[#e3e3e3] hover:bg-[#282a2c]">Name</button><button onclick="setSort('date')" class="w-full text-left px-4 py-2 text-[14px] text-[#e3e3e3] hover:bg-[#282a2c]">Date</button><button onclick="setSort('size')" class="w-full text-left px-4 py-2 text-[14px] text-[#e3e3e3] hover:bg-[#282a2c]">Size</button></div></div><button id="pubViewBtn" onclick="toggleView()" class="p-2 rounded-full text-[#c4c7c5] hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded" id="pubViewIcon">view_list</span></button></div></div><div class="flex-1 overflow-y-auto pb-10" id="publicContainer"></div></div><div id="previewModal" class="hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col transition-opacity duration-300 opacity-0"><div class="flex items-center justify-between p-4 text-[#e3e3e3] bg-gradient-to-b from-black/80 to-transparent absolute top-0 w-full z-10"><div class="flex items-center space-x-4"><button onclick="closePreview()" class="p-2 rounded-full hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">arrow_back</span></button><span id="previewFilename" class="font-medium text-[16px] truncate max-w-[200px] md:max-w-md"></span></div><div class="flex items-center space-x-2"><a id="downloadPreviewBtn" class="p-2 rounded-full hover:bg-white/10 transition flex items-center justify-center" title="Download" download><span class="material-symbols-rounded">download</span></a></div></div><div id="previewContent" class="flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0"></div></div>
+        </head><body class="bg-[#131314] text-[#e3e3e3] p-4 md:p-8 font-sans h-screen flex flex-col"><div class="max-w-6xl mx-auto w-full flex-1 flex flex-col"><div class="flex flex-col md:flex-row md:items-center justify-between mb-6"><div class="flex items-center mb-4 md:mb-0"><button onclick="history.back()" class="p-2 mr-2 rounded-full hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">arrow_back</span></button><span class="material-symbols-rounded filled text-[#a8c7fa] text-3xl mr-3">folder_shared</span><h1 class="text-2xl md:text-3xl font-medium truncate">${folder.name}</h1></div><div class="flex items-center space-x-2"><a href="/share/download/zip/${req.params.share_id}" class="bg-[#a8c7fa] text-[#001d35] font-medium px-4 py-2 rounded-full hover:bg-[#c2e7ff] transition flex items-center shadow-sm"><span class="material-symbols-rounded mr-2 text-[20px]">archive</span> Download All</a><div class="relative"><button id="pubSortBtn" onclick="document.getElementById('pubSortMenu').classList.toggle('hidden')" class="p-2 rounded-full text-[#c4c7c5] hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">sort</span></button><div id="pubSortMenu" class="hidden absolute top-12 right-0 bg-[#1e1f20] border border-[#444746] rounded-[12px] shadow-2xl py-2 w-40 z-50"><button onclick="setSort('name')" class="w-full text-left px-4 py-2 text-[14px] text-[#e3e3e3] hover:bg-[#282a2c]">Name</button><button onclick="setSort('date')" class="w-full text-left px-4 py-2 text-[14px] text-[#e3e3e3] hover:bg-[#282a2c]">Date</button><button onclick="setSort('size')" class="w-full text-left px-4 py-2 text-[14px] text-[#e3e3e3] hover:bg-[#282a2c]">Size</button></div></div><button id="pubViewBtn" onclick="toggleView()" class="p-2 rounded-full text-[#c4c7c5] hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded" id="pubViewIcon">view_list</span></button></div></div><div class="flex-1 overflow-y-auto pb-10" id="publicContainer"></div></div>
+        
+        <div id="previewModal" class="hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col transition-opacity duration-300 opacity-0">
+            <div class="flex items-center justify-between p-4 text-[#e3e3e3] bg-gradient-to-b from-black/80 to-transparent absolute top-0 w-full z-10">
+                <div class="flex items-center space-x-4"><button onclick="closePreview()" class="p-2 rounded-full hover:bg-white/10 transition flex items-center justify-center"><span class="material-symbols-rounded">arrow_back</span></button><span id="previewFilename" class="font-medium text-[16px] truncate max-w-[200px] md:max-w-md"></span></div>
+                <div class="flex items-center space-x-2"><a id="downloadPreviewBtn" class="p-2 rounded-full hover:bg-white/10 transition flex items-center justify-center" title="Download" download><span class="material-symbols-rounded">download</span></a></div>
+            </div>
+            <div id="previewContent" class="flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0"></div>
+        </div>
+        
+        <script src="/js/videoplayer.js"></script>
+
         <script>
             let rawFolders = []; let rawFiles = [];
             try { rawFolders = ${JSON.stringify(folders)} || []; rawFiles = ${JSON.stringify(files)} || []; } catch(e) { }
@@ -498,12 +510,64 @@ app.get('/share/folder/:share_id', async (req, res) => {
                     container.innerHTML = html;
                 } catch (err) { }
             }
-            function openPreview(id, name) { try { const ext = String(name).split('.').pop().toLowerCase(); const modal = document.getElementById('previewModal'); const content = document.getElementById('previewContent'); const downloadBtn = document.getElementById('downloadPreviewBtn'); document.getElementById('previewFilename').textContent = name; downloadBtn.href = '/share/file/' + id; if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { content.innerHTML = '<img src="/share/file/' + id + '" class="max-w-full max-h-full object-contain drop-shadow-2xl">'; } else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { content.innerHTML = '<video src="/share/file/' + id + '" controls autoplay class="max-w-full max-h-full object-contain drop-shadow-2xl outline-none rounded-md bg-black"></video>'; } else { content.innerHTML = \`<div class="flex flex-col items-center text-[#c4c7c5]"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/share/file/\${id}" class="px-8 py-3 bg-[#004a77] text-[#a8c7fa] rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center" download><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>\`; } modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 50); } catch(e) {} }
-            function closePreview() { const modal = document.getElementById('previewModal'); modal.classList.add('opacity-0'); setTimeout(() => { modal.classList.add('hidden'); document.getElementById('previewContent').innerHTML = ''; }, 300); }
+
+            function openPreview(id, name) { 
+                try { 
+                    const ext = String(name).split('.').pop().toLowerCase(); 
+                    const modal = document.getElementById('previewModal'); 
+                    const content = document.getElementById('previewContent'); 
+                    const downloadBtn = document.getElementById('downloadPreviewBtn'); 
+                    const modalHeader = modal.querySelector('div:first-child');
+                    
+                    document.getElementById('previewFilename').textContent = name; 
+                    downloadBtn.href = '/share/file/' + id; 
+                    
+                    content.innerHTML = '';
+                    
+                    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { 
+                        if(modalHeader) modalHeader.classList.remove('hidden');
+                        content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0";
+                        content.innerHTML = '<img src="/share/file/' + id + '" class="max-w-full max-h-full object-contain drop-shadow-2xl">'; 
+                    } 
+                    else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
+                        if(modalHeader) modalHeader.classList.add('hidden'); // Hide default header to let Netflix UI take over!
+                        content.className = "flex-1 flex items-center justify-center w-full h-full p-0 m-0 bg-black";
+                        
+                        // THE FIX: Boot up the custom Netflix-style player!
+                        RPlayer.init(content, '/share/file/' + id, name);
+                    } 
+                    else { 
+                        if(modalHeader) modalHeader.classList.remove('hidden');
+                        content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0";
+                        content.innerHTML = \`<div class="flex flex-col items-center text-[#c4c7c5]"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/share/file/\${id}" class="px-8 py-3 bg-[#004a77] text-[#a8c7fa] rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center" download><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>\`; 
+                    } 
+                    modal.classList.remove('hidden'); 
+                    setTimeout(() => modal.classList.remove('opacity-0'), 50); 
+                } catch(e) {} 
+            }
+            
+            function closePreview() { 
+                const modal = document.getElementById('previewModal'); 
+                modal.classList.add('opacity-0'); 
+                
+                // THE FIX: Cleanly destroy player to stop audio
+                if (typeof RPlayer !== 'undefined') RPlayer.destroy();
+                
+                setTimeout(() => { 
+                    modal.classList.add('hidden'); 
+                    document.getElementById('previewContent').innerHTML = ''; 
+                    
+                    // Restore header for photos
+                    const modalHeader = modal.querySelector('div:first-child');
+                    if(modalHeader) modalHeader.classList.remove('hidden');
+                }, 300); 
+            }
         </script>
         </body></html>`;
         res.send(html);
     });
+});
+
 });
 
 app.get('/share/download/zip/:share_id', async (req, res) => {
