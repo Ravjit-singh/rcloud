@@ -24,9 +24,7 @@
 <body class="bg-md-bg text-md-text font-sans h-screen overflow-hidden flex flex-col selection:bg-md-active selection:text-md-accent relative">
 
     <div id="dragDropOverlay" class="fixed inset-0 z-[200] bg-[#004a77]/90 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 flex flex-col items-center justify-center pointer-events-none">
-        <div class="w-32 h-32 bg-md-surface rounded-full flex items-center justify-center shadow-2xl mb-6 border-4 border-md-accent border-dashed animate-pulse">
-            <span class="material-symbols-rounded text-[64px] text-md-accent">cloud_upload</span>
-        </div>
+        <div class="w-32 h-32 bg-md-surface rounded-full flex items-center justify-center shadow-2xl mb-6 border-4 border-md-accent border-dashed animate-pulse"><span class="material-symbols-rounded text-[64px] text-md-accent">cloud_upload</span></div>
         <h2 class="text-3xl font-medium text-white tracking-wide drop-shadow-lg">Drop files to upload</h2>
         <p class="text-md-fab mt-2 font-medium">Instantly save to R Cloud</p>
     </div>
@@ -160,17 +158,34 @@
         <div id="previewContent" class="flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0"></div>
     </div>
 
-    <div id="itemMenu" class="hidden absolute bg-md-surface border border-[#444746] rounded-[12px] shadow-2xl py-2 w-48 z-50 transition-opacity">
-        <button id="menuItemToggleStar" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted" id="menuItemToggleStarIcon">star</span> <span id="menuItemToggleStarText">Add to Starred</span></button>
-        <button id="menuItemShare" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted" id="menuItemShareIcon">public</span> <span id="menuItemShareText">Share Settings</span></button>
-        <button id="menuItemCopyLink" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted">link</span> Copy Link</button>
-        <div class="my-1 border-t border-[#444746]"></div>
-        <button id="menuItemRename" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted">edit</span> Rename</button>
-        <button id="menuItemCut" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted">content_cut</span> Cut</button>
-        <button id="menuItemCopy" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted">content_copy</span> Copy</button>
-        <div class="my-1 border-t border-[#444746]"></div>
-        <button id="menuItemToggleTrash" class="w-full text-left px-4 py-3 text-[14px] text-md-text hover:bg-md-hover flex items-center"><span class="material-symbols-rounded mr-3 text-md-text-muted" id="menuItemToggleTrashIcon">delete</span> <span id="menuItemToggleTrashText">Move to Trash</span></button>
-        <button id="menuItemPermanentDelete" class="w-full text-left px-4 py-3 text-[14px] text-red-400 hover:bg-md-hover flex items-center hidden"><span class="material-symbols-rounded mr-3 text-red-400">delete_forever</span> Delete Forever</button>
+    <div id="itemMenuBackdrop" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300" onclick="ui.closeItemMenu()"></div>
+    
+    <div id="itemMenu" class="fixed bottom-0 left-0 right-0 md:left-1/2 md:-translate-x-1/2 md:w-[400px] md:bottom-auto md:top-1/2 md:-translate-y-1/2 z-[110] bg-md-surface rounded-t-[24px] md:rounded-[24px] transform translate-y-full md:scale-95 md:opacity-0 transition-all duration-300 hidden flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.5)] md:shadow-2xl pb-safe">
+        <div class="w-full flex justify-center py-3 md:hidden">
+            <div class="w-10 h-1.5 bg-[#444746] rounded-full"></div>
+        </div>
+        
+        <div class="px-6 pb-4 pt-2 md:pt-6 border-b border-[#444746] flex items-center">
+            <span id="menuItemHeaderIcon" class="material-symbols-rounded mr-4 text-md-text-muted text-[28px] filled">description</span>
+            <h3 id="menuItemHeaderName" class="text-md-text font-medium text-[16px] truncate pr-4">Filename</h3>
+        </div>
+        
+        <div class="overflow-y-auto max-h-[65vh] md:max-h-[50vh] p-2">
+            <button id="menuItemToggleStar" class="w-full text-left px-4 py-3.5 text-[15px] text-md-text hover:bg-md-hover rounded-xl flex items-center transition"><span class="material-symbols-rounded mr-4 text-md-text-muted" id="menuItemToggleStarIcon">star</span> <span id="menuItemToggleStarText">Add to Starred</span></button>
+            <button id="menuItemShare" class="w-full text-left px-4 py-3.5 text-[15px] text-md-text hover:bg-md-hover rounded-xl flex items-center transition"><span class="material-symbols-rounded mr-4 text-md-text-muted" id="menuItemShareIcon">public</span> <span id="menuItemShareText">Share Settings</span></button>
+            <button id="menuItemCopyLink" class="w-full text-left px-4 py-3.5 text-[15px] text-md-text hover:bg-md-hover rounded-xl flex items-center transition"><span class="material-symbols-rounded mr-4 text-md-text-muted">link</span> Copy Link</button>
+            
+            <div class="my-1 border-t border-[#444746] mx-4"></div>
+            
+            <button id="menuItemRename" class="w-full text-left px-4 py-3.5 text-[15px] text-md-text hover:bg-md-hover rounded-xl flex items-center transition"><span class="material-symbols-rounded mr-4 text-md-text-muted">edit</span> Rename</button>
+            <button id="menuItemCut" class="w-full text-left px-4 py-3.5 text-[15px] text-md-text hover:bg-md-hover rounded-xl flex items-center transition"><span class="material-symbols-rounded mr-4 text-md-text-muted">content_cut</span> Cut</button>
+            <button id="menuItemCopy" class="w-full text-left px-4 py-3.5 text-[15px] text-md-text hover:bg-md-hover rounded-xl flex items-center transition"><span class="material-symbols-rounded mr-4 text-md-text-muted">content_copy</span> Copy</button>
+            
+            <div class="my-1 border-t border-[#444746] mx-4"></div>
+            
+            <button id="menuItemToggleTrash" class="w-full text-left px-4 py-3.5 text-[15px] text-md-text hover:bg-md-hover rounded-xl flex items-center transition"><span class="material-symbols-rounded mr-4 text-md-text-muted" id="menuItemToggleTrashIcon">delete</span> <span id="menuItemToggleTrashText">Move to Trash</span></button>
+            <button id="menuItemPermanentDelete" class="w-full text-left px-4 py-3.5 text-[15px] text-red-400 hover:bg-md-hover rounded-xl flex items-center transition hidden"><span class="material-symbols-rounded mr-4 text-red-400">delete_forever</span> Delete Forever</button>
+        </div>
     </div>
     
     <div id="clipboardBar" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-md-hover border border-[#444746] pl-6 pr-2 py-2 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-10 pointer-events-none z-[55] hidden items-center">
@@ -190,35 +205,14 @@
     <div id="customShareModal" class="hidden fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
         <div class="bg-md-surface p-6 md:p-8 rounded-[24px] w-full max-w-[400px] border border-[#444746] shadow-2xl relative">
             <h3 class="text-xl font-medium text-md-text mb-4">Share Settings</h3>
-            
-            <div class="flex items-center justify-between mb-6">
-                <span class="text-md-text text-[15px]">Public Access</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" id="shareToggleSwitch" class="sr-only peer">
-                  <div class="w-11 h-6 bg-[#444746] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-md-text-muted after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-md-accent peer-checked:after:bg-[#001d35]"></div>
-                </label>
-            </div>
-
+            <div class="flex items-center justify-between mb-6"><span class="text-md-text text-[15px]">Public Access</span><label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="shareToggleSwitch" class="sr-only peer"><div class="w-11 h-6 bg-[#444746] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-md-text-muted after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-md-accent peer-checked:after:bg-[#001d35]"></div></label></div>
             <div id="shareAdvancedOptions" class="opacity-50 pointer-events-none transition-opacity">
                 <label class="text-[13px] text-md-text-muted mb-1 block">Security PIN (Optional)</label>
                 <input type="password" id="sharePinInput" placeholder="4-Digit PIN" class="w-full bg-md-bg border border-[#444746] rounded-[8px] py-2.5 px-4 text-md-text focus:outline-none focus:border-md-accent focus:border-2 transition-all tracking-[0.2em] mb-4" maxlength="4">
-
                 <label class="text-[13px] text-md-text-muted mb-1 block">Auto-Expire</label>
-                <select id="shareExpirySelect" class="w-full bg-md-bg border border-[#444746] rounded-[8px] py-2.5 px-4 text-md-text focus:outline-none focus:border-md-accent focus:border-2 transition-all mb-6">
-                    <option value="0">Never</option>
-                    <option value="1">In 1 Day</option>
-                    <option value="7">In 7 Days</option>
-                    <option value="30">In 30 Days</option>
-                </select>
+                <select id="shareExpirySelect" class="w-full bg-md-bg border border-[#444746] rounded-[8px] py-2.5 px-4 text-md-text focus:outline-none focus:border-md-accent focus:border-2 transition-all mb-6"><option value="0">Never</option><option value="1">In 1 Day</option><option value="7">In 7 Days</option><option value="30">In 30 Days</option></select>
             </div>
-            
-            <div class="flex justify-between items-center">
-                <button id="copyShareLinkBtn" class="text-md-accent text-[14px] font-medium hidden flex items-center hover:brightness-110"><span class="material-symbols-rounded text-[18px] mr-1">content_copy</span> Copy Link</button>
-                <div class="flex space-x-3 ml-auto">
-                    <button id="shareModalCancelBtn" class="px-5 py-2 text-md-text hover:bg-white/10 rounded-full transition font-medium">Cancel</button>
-                    <button id="shareModalSaveBtn" class="bg-md-accent text-[#001d35] font-medium px-6 py-2 rounded-full hover:bg-[#c2e7ff] transition shadow-sm">Save</button>
-                </div>
-            </div>
+            <div class="flex justify-between items-center"><button id="copyShareLinkBtn" class="text-md-accent text-[14px] font-medium hidden flex items-center hover:brightness-110"><span class="material-symbols-rounded text-[18px] mr-1">content_copy</span> Copy Link</button><div class="flex space-x-3 ml-auto"><button id="shareModalCancelBtn" class="px-5 py-2 text-md-text hover:bg-white/10 rounded-full transition font-medium">Cancel</button><button id="shareModalSaveBtn" class="bg-md-accent text-[#001d35] font-medium px-6 py-2 rounded-full hover:bg-[#c2e7ff] transition shadow-sm">Save</button></div></div>
         </div>
     </div>
 
@@ -228,7 +222,6 @@
     <script src="/js/state.js"></script>
     <script src="/js/api.js"></script>
     <script src="/js/auth.js"></script>
-    <script src="/js/videoplayer.js"></script>
     <script src="/js/ui.js"></script>
     <script src="/js/app.js"></script>
 </body>

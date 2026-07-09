@@ -1,3 +1,4 @@
+const os = require('os');
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs').promises;
@@ -671,4 +672,25 @@ async function startServer() {
     app.locals.db = await initDB();
     app.listen(PORT, () => console.log(`🚀 R Cloud Engine running live on http://localhost:${PORT}`));
 }
+async function startServer() {
+    await ensureDirExists();
+    app.locals.db = await initDB();
+    app.listen(PORT, () => {
+        console.log(`\n🚀 R Cloud Engine Booted Successfully!`);
+        console.log(`========================================`);
+        console.log(`🏠 Local Access:  http://localhost:${PORT}`);
+        
+        // Dynamically fetch and print Hotspot / Wi-Fi IP address
+        const nets = os.networkInterfaces();
+        for (const name of Object.keys(nets)) {
+            for (const net of nets[name]) {
+                if (net.family === 'IPv4' && !net.internal) {
+                    console.log(`📡 Hotspot/Wi-Fi: http://${net.address}:${PORT}`);
+                }
+            }
+        }
+        console.log(`========================================\n`);
+    });
+}
 startServer();
+

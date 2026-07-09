@@ -5,11 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('profileBtn')?.addEventListener('click', () => window.location.href = '/settings.html');
 
     const fileInput = document.getElementById('hiddenFileInput');
-    const folderInput = document.getElementById('hiddenFolderInput'); // NEW
+    const folderInput = document.getElementById('hiddenFolderInput'); 
     const newBtn = document.getElementById('newBtn');
     const mobileNewBtn = document.getElementById('mobileNewBtn');
     const newMenu = document.getElementById('newMenu');
-    const itemMenu = document.getElementById('itemMenu');
     const bulkMenu = document.getElementById('bulkMenu');
     const sortMenu = document.getElementById('sortMenu');
     const bulkMenuBtn = document.getElementById('bulkMenuBtn');
@@ -17,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function toggleMenu(e) {
         e.stopPropagation();
-        if (itemMenu) itemMenu.classList.add('hidden');
+        ui.closeItemMenu();
         if (bulkMenu) bulkMenu.classList.add('hidden');
         if (sortMenu) sortMenu.classList.add('hidden');
         if (newMenu && newMenu.classList.contains('hidden')) {
@@ -33,13 +32,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     bulkMenuBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (newMenu) newMenu.classList.add('hidden'); if (itemMenu) itemMenu.classList.add('hidden'); if (sortMenu) sortMenu.classList.add('hidden');
+        if (newMenu) newMenu.classList.add('hidden'); 
+        ui.closeItemMenu(); 
+        if (sortMenu) sortMenu.classList.add('hidden');
         bulkMenu?.classList.toggle('hidden');
     });
 
     sortMenuTrigger?.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (newMenu) newMenu.classList.add('hidden'); if (itemMenu) itemMenu.classList.add('hidden'); if (bulkMenu) bulkMenu.classList.add('hidden');
+        if (newMenu) newMenu.classList.add('hidden'); 
+        ui.closeItemMenu(); 
+        if (bulkMenu) bulkMenu.classList.add('hidden');
         if (sortMenu && !sortMenu.classList.contains('hidden')) { ui.setSort(state.sortBy, state.sortOrder === 'asc' ? 'desc' : 'asc'); }
         sortMenu?.classList.toggle('hidden');
     });
@@ -51,10 +54,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('click', () => {
-        if (newMenu) newMenu.classList.add('hidden'); if (itemMenu) itemMenu.classList.add('hidden'); if (bulkMenu) bulkMenu.classList.add('hidden'); if (sortMenu) sortMenu.classList.add('hidden');
+        if (newMenu) newMenu.classList.add('hidden'); 
+        if (bulkMenu) bulkMenu.classList.add('hidden'); 
+        if (sortMenu) sortMenu.classList.add('hidden');
+        ui.closeItemMenu(); // The Global Fix
     });
 
-    itemMenu?.addEventListener('click', (e) => e.stopPropagation()); bulkMenu?.addEventListener('click', (e) => e.stopPropagation()); sortMenu?.addEventListener('click', (e) => e.stopPropagation()); newMenu?.addEventListener('click', (e) => e.stopPropagation());
+    bulkMenu?.addEventListener('click', (e) => e.stopPropagation()); sortMenu?.addEventListener('click', (e) => e.stopPropagation()); newMenu?.addEventListener('click', (e) => e.stopPropagation());
 
     const searchInput = document.getElementById('searchInput'); const clearSearchBtn = document.getElementById('clearSearchBtn'); let searchTimeout;
     searchInput?.addEventListener('input', (e) => {
@@ -67,7 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('menuUploadBtn')?.addEventListener('click', () => { if(newMenu) newMenu.classList.add('hidden'); fileInput?.click(); });
     
-    // THE FIX: Folder Picker
     document.getElementById('menuFolderUploadBtn')?.addEventListener('click', () => { if(newMenu) newMenu.classList.add('hidden'); folderInput?.click(); });
 
     document.getElementById('menuFolderBtn')?.addEventListener('click', async () => {
@@ -84,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     folderInput?.addEventListener('change', (e) => { if (e.target.files.length > 0) { ui.uploadQueue(Array.from(e.target.files)); folderInput.value = ''; } });
 
     document.getElementById('menuItemRename')?.addEventListener('click', async () => {
-        const target = state.activeMenuTarget; if (itemMenu) itemMenu.classList.add('hidden'); 
+        const target = state.activeMenuTarget; ui.closeItemMenu(); 
         if (target) {
             const newName = await ui.promptModal("Rename Item", "Enter new name...", target.name, "Rename this file or folder.");
             if (newName && newName !== target.name) {
@@ -103,14 +108,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('bulkMakePublicBtn')?.addEventListener('click', () => { ui.bulkToggleShare(true); if(bulkMenu) bulkMenu.classList.add('hidden'); });
     document.getElementById('bulkMakePrivateBtn')?.addEventListener('click', () => { ui.bulkToggleShare(false); if(bulkMenu) bulkMenu.classList.add('hidden'); });
 
-    // THE FIX: Triggers Custom Modal with full Share Settings Payload
     document.getElementById('menuItemShare')?.addEventListener('click', () => {
-        const target = state.activeMenuTarget; if(itemMenu) itemMenu.classList.add('hidden');
+        const target = state.activeMenuTarget; ui.closeItemMenu();
         if (target) ui.openShareModal(target.id, target.type, target.isPublic, target.shareId);
     });
 
     document.getElementById('menuItemCopyLink')?.addEventListener('click', async () => {
-        const target = state.activeMenuTarget; if(itemMenu) itemMenu.classList.add('hidden');
+        const target = state.activeMenuTarget; ui.closeItemMenu();
         if (target) {
             const link = `${window.location.origin}/share/${target.type}/${target.shareId}`;
             try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(link); ui.showToast("Link copied to clipboard!", "content_copy", "text-green-400"); } else { throw new Error(); } } 
@@ -118,18 +122,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('menuItemToggleStar')?.addEventListener('click', async () => { const t = state.activeMenuTarget; if (t) { await api.toggleStar(t.id, t.type, !t.isStarred); ui.loadDrive(true); } if(itemMenu) itemMenu.classList.add('hidden'); });
-    document.getElementById('menuItemToggleTrash')?.addEventListener('click', async () => { const t = state.activeMenuTarget; if (t) { await api.toggleTrash(t.id, t.type, !t.isTrash); ui.loadDrive(true); } if(itemMenu) itemMenu.classList.add('hidden'); });
+    document.getElementById('menuItemToggleStar')?.addEventListener('click', async () => { const t = state.activeMenuTarget; if (t) { await api.toggleStar(t.id, t.type, !t.isStarred); ui.loadDrive(true); } ui.closeItemMenu(); });
+    document.getElementById('menuItemToggleTrash')?.addEventListener('click', async () => { const t = state.activeMenuTarget; if (t) { await api.toggleTrash(t.id, t.type, !t.isTrash); ui.loadDrive(true); } ui.closeItemMenu(); });
     
     document.getElementById('menuItemPermanentDelete')?.addEventListener('click', async () => {
-        const t = state.activeMenuTarget; if(itemMenu) itemMenu.classList.add('hidden');
+        const t = state.activeMenuTarget; ui.closeItemMenu();
         if (t && await ui.confirmModal("Delete Forever", "Permanently delete this item? This cannot be undone.", true, "delete_forever")) { if (t.type === 'folder') await api.deleteFolder(t.id); else await api.deleteFile(t.id); ui.loadDrive(true); }
     });
 
     document.getElementById('bulkCutBtn')?.addEventListener('click', () => { ui.setClipboard('cut', Array.from(state.selected.values())); if(bulkMenu) bulkMenu.classList.add('hidden'); });
     document.getElementById('bulkCopyBtn')?.addEventListener('click', () => { ui.setClipboard('copy', Array.from(state.selected.values())); if(bulkMenu) bulkMenu.classList.add('hidden'); });
-    document.getElementById('menuItemCut')?.addEventListener('click', () => { if (state.activeMenuTarget) ui.setClipboard('cut', [state.activeMenuTarget]); if(itemMenu) itemMenu.classList.add('hidden'); });
-    document.getElementById('menuItemCopy')?.addEventListener('click', () => { if (state.activeMenuTarget) ui.setClipboard('copy', [state.activeMenuTarget]); if(itemMenu) itemMenu.classList.add('hidden'); });
+    document.getElementById('menuItemCut')?.addEventListener('click', () => { if (state.activeMenuTarget) ui.setClipboard('cut', [state.activeMenuTarget]); ui.closeItemMenu(); });
+    document.getElementById('menuItemCopy')?.addEventListener('click', () => { if (state.activeMenuTarget) ui.setClipboard('copy', [state.activeMenuTarget]); ui.closeItemMenu(); });
 
     // ==========================================
     //      NATIVE DRAG AND DROP ENGINE

@@ -86,9 +86,7 @@ const ui = {
             const expirySelect = document.getElementById('shareExpirySelect');
             const linkBtn = document.getElementById('copyShareLinkBtn');
 
-            toggle.checked = isPublic;
-            pinInput.value = '';
-            expirySelect.value = '0';
+            toggle.checked = isPublic; pinInput.value = ''; expirySelect.value = '0';
             
             const updateUI = () => {
                 if(toggle.checked) {
@@ -102,26 +100,17 @@ const ui = {
                 }
             };
             
-            toggle.onchange = updateUI;
-            updateUI();
-            
+            toggle.onchange = updateUI; updateUI();
             modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 10);
-            
             const cleanup = () => { modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 300); };
 
             document.getElementById('shareModalCancelBtn').onclick = () => { cleanup(); resolve(false); };
             document.getElementById('shareModalSaveBtn').onclick = async () => {
-                cleanup();
-                const isPub = toggle.checked;
-                const pin = pinInput.value.trim();
-                const expiry = parseInt(expirySelect.value);
-                
+                cleanup(); const isPub = toggle.checked; const pin = pinInput.value.trim(); const expiry = parseInt(expirySelect.value);
                 this.showToast("Updating security rules...", "sync", "text-md-accent");
                 const res = await api.toggleShare(id, type, isPub, pin, expiry);
-                if (res.status === 200) {
-                    this.showToast(isPub ? "Link Live!" : "Link Locked", isPub ? "public" : "lock", isPub ? "text-green-400" : "text-md-text-muted");
-                    this.loadDrive(true);
-                } else { this.showToast("Failed to update", "error", "text-red-400"); }
+                if (res.status === 200) { this.showToast(isPub ? "Link Live!" : "Link Locked", isPub ? "public" : "lock", isPub ? "text-green-400" : "text-md-text-muted"); this.loadDrive(true); } 
+                else { this.showToast("Failed to update", "error", "text-red-400"); }
                 resolve(true);
             };
         });
@@ -212,18 +201,36 @@ const ui = {
         state.selected.clear(); this.updateSelectionUI(); this.showToast(`${success} items updated`, "check_circle", "text-green-400"); this.loadDrive(true);
     },
 
+    // THE FIX: Bottom Sheet Context Menu Engine
     openItemMenu(e, id, type, name, isPublic = false, shareId, isStarred = false, isTrash = false) {
         e.stopPropagation(); 
         document.getElementById('newMenu')?.classList.add('hidden'); document.getElementById('bulkMenu')?.classList.add('hidden'); document.getElementById('sortMenu')?.classList.add('hidden');
         state.activeMenuTarget = { id, type, name, isPublic, shareId, isStarred, isTrash };
-        const menu = document.getElementById('itemMenu'); if(!menu) return;
+        
+        const menu = document.getElementById('itemMenu'); 
+        const backdrop = document.getElementById('itemMenuBackdrop');
+        if(!menu || !backdrop) return;
+
+        const headerName = document.getElementById('menuItemHeaderName');
+        const headerIcon = document.getElementById('menuItemHeaderIcon');
+        if(headerName) headerName.textContent = name;
+        if(headerIcon) {
+            if(type === 'folder') {
+                headerIcon.textContent = isPublic ? 'folder_shared' : 'folder';
+                headerIcon.className = 'material-symbols-rounded mr-4 text-md-text-muted text-[28px] filled';
+            } else {
+                const iconData = this.getFileIcon(name);
+                headerIcon.textContent = iconData.icon;
+                headerIcon.className = `material-symbols-rounded mr-4 ${iconData.color} text-[28px] filled`;
+            }
+        }
 
         const copyBtn = document.getElementById('menuItemCopyLink');
         const pubBtnIcon = document.getElementById('menuItemShareIcon');
         const pubBtnText = document.getElementById('menuItemShareText');
         
-        if (isPublic) { pubBtnIcon.textContent = 'public'; pubBtnText.textContent = 'Share Settings'; copyBtn?.classList.remove('hidden'); } 
-        else { pubBtnIcon.textContent = 'lock_open'; pubBtnText.textContent = 'Share Settings'; copyBtn?.classList.add('hidden'); }
+        if (isPublic) { pubBtnIcon.textContent = 'lock_open'; pubBtnText.textContent = 'Share Settings'; copyBtn?.classList.remove('hidden'); } 
+        else { pubBtnIcon.textContent = 'public'; pubBtnText.textContent = 'Share Settings'; copyBtn?.classList.add('hidden'); }
 
         const starIcon = document.getElementById('menuItemToggleStarIcon'); const starText = document.getElementById('menuItemToggleStarText');
         if (isStarred) { starIcon.classList.add('filled', 'text-yellow-500'); starText.textContent = "Unstar"; } else { starIcon.classList.remove('filled', 'text-yellow-500'); starText.textContent = "Add to Starred"; }
@@ -231,7 +238,31 @@ const ui = {
         const trashToggleBtn = document.getElementById('menuItemToggleTrash'); const trashIcon = document.getElementById('menuItemToggleTrashIcon'); const trashText = document.getElementById('menuItemToggleTrashText'); const permDeleteBtn = document.getElementById('menuItemPermanentDelete');
         if (state.isFrozen) { trashToggleBtn?.classList.add('hidden'); permDeleteBtn?.classList.add('hidden'); } else { trashToggleBtn?.classList.remove('hidden'); if (isTrash) { trashIcon.textContent = 'restore_from_trash'; trashText.textContent = 'Restore'; permDeleteBtn?.classList.remove('hidden'); } else { trashIcon.textContent = 'delete'; trashText.textContent = 'Move to Trash'; permDeleteBtn?.classList.add('hidden'); } }
         
-        const rect = e.currentTarget.getBoundingClientRect(); menu.style.top = `${rect.bottom + window.scrollY + 5}px`; menu.style.left = rect.right - 192 < 10 ? `10px` : `${rect.right - 192}px`; menu.classList.remove('hidden');
+        backdrop.classList.remove('hidden');
+        menu.classList.remove('hidden');
+        menu.classList.add('flex');
+        
+        void menu.offsetWidth; 
+        
+        backdrop.classList.remove('opacity-0');
+        menu.classList.remove('translate-y-full', 'md:scale-95', 'md:opacity-0');
+        menu.classList.add('translate-y-0', 'md:scale-100', 'md:opacity-100');
+    },
+
+    closeItemMenu() {
+        const menu = document.getElementById('itemMenu');
+        const backdrop = document.getElementById('itemMenuBackdrop');
+        if(!menu || !backdrop) return;
+        
+        backdrop.classList.add('opacity-0');
+        menu.classList.remove('translate-y-0', 'md:scale-100', 'md:opacity-100');
+        menu.classList.add('translate-y-full', 'md:scale-95', 'md:opacity-0');
+        
+        setTimeout(() => {
+            backdrop.classList.add('hidden');
+            menu.classList.add('hidden');
+            menu.classList.remove('flex');
+        }, 300);
     },
 
     async loadDrive(fetchData = true) {
@@ -308,15 +339,14 @@ const ui = {
                     card.className = `flex items-center justify-between p-3 border-b border-[#444746] ${bgClass} hover:bg-md-hover transition cursor-pointer group`;
                     card.innerHTML = `<div class="flex items-center flex-1 overflow-hidden pointer-events-none"><div class="relative shrink-0 pointer-events-auto cursor-pointer flex items-center justify-center mr-4" onclick="event.stopPropagation(); ui.toggleSelect('${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}')">${isSel ? `<span class="material-symbols-rounded filled text-md-accent text-[24px]">check_circle</span>` : `<span class="material-symbols-rounded filled ${fileType.color} text-[24px]">${fileType.icon}</span>`}</div><span class="text-[14px] font-medium text-md-text truncate">${file.name}</span>${starBadge}</div><div class="flex items-center shrink-0 w-32 hidden md:flex text-md-text-muted text-[13px]">${this.formatDate(file.date)}</div><div class="flex items-center shrink-0 w-20 hidden md:flex text-md-text-muted text-[13px]">${this.formatSize(file.size)}</div><div class="flex items-center shrink-0 ml-4 pointer-events-auto"><button onclick="ui.openItemMenu(event, '${safeId}', 'file', '${file.name.replace(/'/g, "\\'")}', ${isShared}, '${file.share_id}', ${file.is_starred === 1}, ${file.is_trash === 1})" class="material-symbols-rounded text-md-text-muted hover:text-md-text text-[20px] transition p-1">more_vert</button></div>`;
                 } else {
-                    // THE FIX: Embedded robust onerror fallback to gracefully render the Material Icon
-                    let thumbnailHTML = \`<span class="material-symbols-rounded text-[48px] \${fileType.color}">\${fileType.icon}</span>\`;
+                    let thumbnailHTML = `<span class="material-symbols-rounded text-[48px] ${fileType.color}">${fileType.icon}</span>`;
                     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
-                        thumbnailHTML = \`
-                            <img src="/api/thumbnail/\${file.id}" loading="lazy" class="w-full h-full object-cover rounded-[8px] z-10 relative" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
-                            <div class="absolute inset-0 flex items-center justify-center hidden z-0"><span class="material-symbols-rounded text-[48px] \${fileType.color}">\${fileType.icon}</span></div>
-                        \`; 
+                        thumbnailHTML = `
+                            <img src="/api/thumbnail/${file.id}" loading="lazy" class="w-full h-full object-cover rounded-[8px] z-10 relative" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+                            <div class="absolute inset-0 flex items-center justify-center hidden z-0"><span class="material-symbols-rounded text-[48px] ${fileType.color}">${fileType.icon}</span></div>
+                        `; 
                         if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
-                            thumbnailHTML += \`<div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-[8px] z-20 pointer-events-none"><span class="material-symbols-rounded text-white drop-shadow-lg text-[32px]">play_circle</span></div>\`; 
+                            thumbnailHTML += `<div class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-[8px] z-20 pointer-events-none"><span class="material-symbols-rounded text-white drop-shadow-lg text-[32px]">play_circle</span></div>`; 
                         } 
                     } 
                     card.className = `flex flex-col ${bgClass} rounded-[12px] overflow-hidden cursor-pointer transition border group`;
