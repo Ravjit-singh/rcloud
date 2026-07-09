@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (newMenu) newMenu.classList.add('hidden'); 
         if (bulkMenu) bulkMenu.classList.add('hidden'); 
         if (sortMenu) sortMenu.classList.add('hidden');
-        ui.closeItemMenu(); // The Global Fix
+        ui.closeItemMenu();
     });
 
     bulkMenu?.addEventListener('click', (e) => e.stopPropagation()); sortMenu?.addEventListener('click', (e) => e.stopPropagation()); newMenu?.addEventListener('click', (e) => e.stopPropagation());
@@ -72,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
     clearSearchBtn?.addEventListener('click', () => { if(searchInput) searchInput.value = ''; clearSearchBtn.classList.add('hidden'); ui.loadDrive(true); });
 
     document.getElementById('menuUploadBtn')?.addEventListener('click', () => { if(newMenu) newMenu.classList.add('hidden'); fileInput?.click(); });
-    
     document.getElementById('menuFolderUploadBtn')?.addEventListener('click', () => { if(newMenu) newMenu.classList.add('hidden'); folderInput?.click(); });
 
     document.getElementById('menuFolderBtn')?.addEventListener('click', async () => {
@@ -95,6 +94,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newName && newName !== target.name) {
                 ui.showToast("Renaming...", "edit", "text-md-accent"); const res = await api.renameItem(target.id, target.type, newName);
                 if (res.status === 200) { ui.showToast("Renamed successfully!", "check_circle", "text-green-400"); ui.loadDrive(true); } else { ui.showToast("Failed to rename", "error", "text-red-400"); }
+            }
+        }
+    });
+
+    // THE FIX: Single-Item Download Button Logic
+    document.getElementById('menuItemDownload')?.addEventListener('click', async () => {
+        const target = state.activeMenuTarget; ui.closeItemMenu();
+        if (target) {
+            if (target.type === 'folder') {
+                ui.showToast("Compressing folder...", "archive", "text-md-accent");
+                const success = await api.downloadZip([target]);
+                if (success) ui.showToast("Download started!", "check_circle", "text-green-400");
+                else ui.showToast("Compression failed", "error", "text-red-400");
+            } else {
+                window.location.href = `/api/download/${target.id}`;
             }
         }
     });
@@ -136,8 +150,32 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('menuItemCopy')?.addEventListener('click', () => { if (state.activeMenuTarget) ui.setClipboard('copy', [state.activeMenuTarget]); ui.closeItemMenu(); });
 
     // ==========================================
-    //      NATIVE DRAG AND DROP ENGINE
+    //      THE FIX: NATIVE SWIPE GALLERY ENGINE
     // ==========================================
+    const previewContent = document.getElementById('previewContent');
+    let touchstartX = 0; let touchstartY = 0; let touchendX = 0; let touchendY = 0;
+
+    previewContent?.addEventListener('touchstart', e => {
+        // Prevent swipe from triggering if interacting with Video Controls
+        if (e.target.closest('#rp-ui') || e.target.closest('button')) return;
+        touchstartX = e.changedTouches[0].screenX;
+        touchstartY = e.changedTouches[0].screenY;
+    });
+
+    previewContent?.addEventListener('touchend', e => {
+        if (e.target.closest('#rp-ui') || e.target.closest('button')) return;
+        touchendX = e.changedTouches[0].screenX;
+        touchendY = e.changedTouches[0].screenY;
+        
+        // Safety: Ensure it's a Horizontal swipe, not a Vertical scroll!
+        if (Math.abs(touchendY - touchstartY) > 100) return;
+        
+        // Trigger Next/Prev if swiped over 75 pixels
+        if (touchendX < touchstartX - 75) ui.previewNext(); 
+        if (touchendX > touchstartX + 75) ui.previewPrev();
+    });
+
+    // Native Drag and Drop
     const dropZone = document.getElementById('dragDropOverlay');
     window.addEventListener('dragover', (e) => {
         e.preventDefault(); if (state.isFrozen) return;

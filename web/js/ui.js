@@ -2,6 +2,8 @@ const ui = {
     foldersGrid: document.getElementById('foldersGrid'),
     filesGrid: document.getElementById('filesGrid'),
     toastTimer: null,
+    currentFiles: [], // THE FIX: Stores the active file list for gallery swiping
+    previewIndex: 0,
 
     toggleSidebar(forceClose = false) {
         const sidebar = document.getElementById('mainSidebar');
@@ -86,7 +88,9 @@ const ui = {
             const expirySelect = document.getElementById('shareExpirySelect');
             const linkBtn = document.getElementById('copyShareLinkBtn');
 
-            toggle.checked = isPublic; pinInput.value = ''; expirySelect.value = '0';
+            toggle.checked = isPublic;
+            pinInput.value = '';
+            expirySelect.value = '0';
             
             const updateUI = () => {
                 if(toggle.checked) {
@@ -100,17 +104,26 @@ const ui = {
                 }
             };
             
-            toggle.onchange = updateUI; updateUI();
+            toggle.onchange = updateUI;
+            updateUI();
+            
             modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 10);
+            
             const cleanup = () => { modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 300); };
 
             document.getElementById('shareModalCancelBtn').onclick = () => { cleanup(); resolve(false); };
             document.getElementById('shareModalSaveBtn').onclick = async () => {
-                cleanup(); const isPub = toggle.checked; const pin = pinInput.value.trim(); const expiry = parseInt(expirySelect.value);
+                cleanup();
+                const isPub = toggle.checked;
+                const pin = pinInput.value.trim();
+                const expiry = parseInt(expirySelect.value);
+                
                 this.showToast("Updating security rules...", "sync", "text-md-accent");
                 const res = await api.toggleShare(id, type, isPub, pin, expiry);
-                if (res.status === 200) { this.showToast(isPub ? "Link Live!" : "Link Locked", isPub ? "public" : "lock", isPub ? "text-green-400" : "text-md-text-muted"); this.loadDrive(true); } 
-                else { this.showToast("Failed to update", "error", "text-red-400"); }
+                if (res.status === 200) {
+                    this.showToast(isPub ? "Link Live!" : "Link Locked", isPub ? "public" : "lock", isPub ? "text-green-400" : "text-md-text-muted");
+                    this.loadDrive(true);
+                } else { this.showToast("Failed to update", "error", "text-red-400"); }
                 resolve(true);
             };
         });
@@ -201,7 +214,6 @@ const ui = {
         state.selected.clear(); this.updateSelectionUI(); this.showToast(`${success} items updated`, "check_circle", "text-green-400"); this.loadDrive(true);
     },
 
-    // THE FIX: Bottom Sheet Context Menu Engine
     openItemMenu(e, id, type, name, isPublic = false, shareId, isStarred = false, isTrash = false) {
         e.stopPropagation(); 
         document.getElementById('newMenu')?.classList.add('hidden'); document.getElementById('bulkMenu')?.classList.add('hidden'); document.getElementById('sortMenu')?.classList.add('hidden');
@@ -238,10 +250,21 @@ const ui = {
         const trashToggleBtn = document.getElementById('menuItemToggleTrash'); const trashIcon = document.getElementById('menuItemToggleTrashIcon'); const trashText = document.getElementById('menuItemToggleTrashText'); const permDeleteBtn = document.getElementById('menuItemPermanentDelete');
         if (state.isFrozen) { trashToggleBtn?.classList.add('hidden'); permDeleteBtn?.classList.add('hidden'); } else { trashToggleBtn?.classList.remove('hidden'); if (isTrash) { trashIcon.textContent = 'restore_from_trash'; trashText.textContent = 'Restore'; permDeleteBtn?.classList.remove('hidden'); } else { trashIcon.textContent = 'delete'; trashText.textContent = 'Move to Trash'; permDeleteBtn?.classList.add('hidden'); } }
         
-        backdrop.classList.remove('hidden');
-        menu.classList.remove('hidden');
-        menu.classList.add('flex');
+        menu.classList.remove('hidden'); 
         
+        const rect = e.currentTarget.getBoundingClientRect(); 
+        const menuHeight = menu.offsetHeight;
+        
+        if (rect.bottom + menuHeight > window.innerHeight) {
+            menu.style.top = `${rect.top + window.scrollY - menuHeight - 8}px`; 
+        } else {
+            menu.style.top = `${rect.bottom + window.scrollY + 8}px`; 
+        }
+        
+        menu.style.left = rect.right - 192 < 10 ? `10px` : `${rect.right - 192}px`; 
+        
+        backdrop.classList.remove('hidden');
+        menu.classList.add('flex');
         void menu.offsetWidth; 
         
         backdrop.classList.remove('opacity-0');
@@ -296,6 +319,10 @@ const ui = {
         if(!this.foldersGrid || !this.filesGrid) return;
         this.foldersGrid.innerHTML = ''; this.filesGrid.innerHTML = '';
         let { folders, files } = state.currentData; folders = this.sortArray([...folders]); files = this.sortArray([...files]);
+        
+        // THE FIX: Saves the globally sorted file list so the Swiper knows what's next!
+        this.currentFiles = files;
+        
         const isSelectionMode = state.selected.size > 0; const isList = state.viewMode === 'list';
         const foldersHeader = document.getElementById('foldersHeader'); const filesHeader = document.getElementById('filesHeader');
 
@@ -369,7 +396,42 @@ const ui = {
         if (res.status === 200) { this.showToast(`Successfully pasted!`, "check_circle", "text-green-400"); this.clearClipboard(); this.loadDrive(true); } else { this.showToast("Failed to paste items", "error", "text-red-400"); }
     },
 
+    // THE FIX: Gallery Engine - Left & Right Navigation
+    updatePreviewArrows() {
+        const prevBtn = document.getElementById('previewPrevBtn');
+        const nextBtn = document.getElementById('previewNextBtn');
+        if (!prevBtn || !nextBtn) return;
+        
+        if (this.previewIndex > 0) prevBtn.style.display = 'flex';
+        else prevBtn.style.display = 'none';
+        
+        if (this.currentFiles && this.previewIndex < this.currentFiles.length - 1) nextBtn.style.display = 'flex';
+        else nextBtn.style.display = 'none';
+    },
+
+    previewNext(e) {
+        if(e) e.stopPropagation();
+        if (this.previewIndex !== undefined && this.previewIndex < this.currentFiles.length - 1) {
+            if (typeof RPlayer !== 'undefined') RPlayer.destroy();
+            const nextFile = this.currentFiles[this.previewIndex + 1];
+            this.openPreview(nextFile.id, nextFile.name);
+        }
+    },
+
+    previewPrev(e) {
+        if(e) e.stopPropagation();
+        if (this.previewIndex !== undefined && this.previewIndex > 0) {
+            if (typeof RPlayer !== 'undefined') RPlayer.destroy();
+            const prevFile = this.currentFiles[this.previewIndex - 1];
+            this.openPreview(prevFile.id, prevFile.name);
+        }
+    },
+
     openPreview(id, name) {
+        // Track our exact location in the file array for swiping
+        this.previewIndex = this.currentFiles?.findIndex(f => String(f.id) === String(id));
+        this.updatePreviewArrows();
+
         const ext = name.split('.').pop().toLowerCase(); const modal = document.getElementById('previewModal'); const content = document.getElementById('previewContent'); const downloadBtn = document.getElementById('downloadPreviewBtn'); document.getElementById('previewFilename').textContent = name; downloadBtn.onclick = () => window.location.href = `/api/download/${id}`; 
         
         const modalHeader = modal.querySelector('div:first-child');
@@ -377,19 +439,20 @@ const ui = {
         
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) { 
             if(modalHeader) modalHeader.classList.remove('hidden');
-            content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0";
-            content.innerHTML = `<img src="/api/view/${id}" class="max-w-full max-h-full object-contain drop-shadow-2xl">`; 
+            content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0 select-none";
+            content.innerHTML = `<img src="/api/view/${id}" class="max-w-full max-h-full object-contain drop-shadow-2xl pointer-events-none">`; 
         } else if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) { 
             if(modalHeader) modalHeader.classList.add('hidden');
-            content.className = "flex-1 flex items-center justify-center w-full h-full p-0 m-0 bg-black";
+            content.className = "flex-1 flex items-center justify-center w-full h-full p-0 m-0 bg-black select-none";
             RPlayer.init(content, `/api/view/${id}`, name);
         } else { 
             if(modalHeader) modalHeader.classList.remove('hidden');
-            content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0";
+            content.className = "flex-1 flex items-center justify-center p-4 md:p-12 overflow-hidden relative mt-16 md:mt-0 select-none";
             content.innerHTML = `<div class="flex flex-col items-center text-md-text-muted"><span class="material-symbols-rounded text-[80px] mb-4">description</span><p class="mb-6">No preview available for this file type.</p><a href="/api/download/${id}" class="px-8 py-3 bg-md-active text-md-accent rounded-full font-medium hover:bg-[#005a8f] transition shadow-lg flex items-center"><span class="material-symbols-rounded mr-2">download</span> Download File</a></div>`; 
         }
         modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 50);
     },
+    
     closePreview() { 
         const modal = document.getElementById('previewModal'); modal.classList.add('opacity-0'); 
         if (typeof RPlayer !== 'undefined') RPlayer.destroy();
