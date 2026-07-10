@@ -1,4 +1,4 @@
-#!/bin/bash
+l#!/bin/bash
 
 # ==========================================
 # ANSI Color & Style Definitions
@@ -41,7 +41,8 @@ OS="$(uname -s)"
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
     ENV_TYPE="Termux (Android Native)"
     CMD_UPDATE="pkg update -y && pkg upgrade -y"
-    CMD_INSTALL="pkg install -y git nodejs ffmpeg python make clang"
+    # Added binutils for C++ database compilation
+    CMD_INSTALL="pkg install -y git nodejs ffmpeg python make clang binutils"
 elif [ "$OS" == "Linux" ]; then
     ENV_TYPE="Linux Server"
     if command -v apt &> /dev/null; then
@@ -89,6 +90,12 @@ print_success "Codebase synchronized"
 # --- STEP 4: NPM INSTALL ---
 print_step "Building Backend Architecture..."
 cd server
+
+# CRITICAL FIX FOR TERMUX SQLITE3 C++ COMPILATION
+if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
+    export GYP_DEFINES="android_ndk_path=''"
+fi
+
 if [ -f "package.json" ]; then
     print_subtext "Installing NPM dependencies..."
     npm install
