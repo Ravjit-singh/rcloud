@@ -1,51 +1,34 @@
 #!/bin/bash
 
 # ==========================================
-# ANSI Color & Style Definitions (Material Palette)
+# ANSI Color & Style Definitions
 # ==========================================
 BOLD='\033[1m'
 DIM='\033[2m'
-BLUE='\033[1;34m'     # MD Active
-CYAN='\033[1;36m'     # MD Accent
-GREEN='\033[1;32m'    # MD Success
-RED='\033[1;31m'      # MD Error
-WHITE='\033[1;37m'    # MD Text
-NC='\033[0m'          # No Color / Reset
+BLUE='\033[1;34m'
+CYAN='\033[1;36m'
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+WHITE='\033[1;37m'
+NC='\033[0m'
 
 # ==========================================
 # UI Components
 # ==========================================
 print_card_header() {
     clear
-    echo -e "${CYAN}╭──────────────────────────────────────────────╮${NC}"
-    echo -e "${CYAN}│${NC}                                              ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC}             ${WHITE}${BOLD}☁️  R CLOUD SETUP${NC}                ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC}                                              ${CYAN}│${NC}"
-    echo -e "${CYAN}╰──────────────────────────────────────────────╯${NC}"
+    echo -e "${CYAN}╭────────────────────────────────────╮${NC}"
+    echo -e "${CYAN}│${NC}                                    ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}       ${WHITE}${BOLD}☁️  R CLOUD SETUP${NC}          ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}                                    ${CYAN}│${NC}"
+    echo -e "${CYAN}╰────────────────────────────────────╯${NC}"
     echo ""
     sleep 0.5
 }
 
-print_step() {
-    echo -e "${BLUE}● ${WHITE}${BOLD}$1${NC}"
-    sleep 0.3
-}
-
-print_subtext() {
-    echo -e "  ${DIM}↳ $1${NC}"
-    sleep 0.2
-}
-
-print_success() {
-    echo -e "  ${GREEN}✔ $1${NC}"
-    echo ""
-    sleep 0.5
-}
-
-print_error() {
-    echo -e "  ${RED}✖ $1${NC}"
-    echo ""
-}
+print_step() { echo -e "${BLUE}● ${WHITE}${BOLD}$1${NC}"; sleep 0.3; }
+print_subtext() { echo -e "  ${DIM}↳ $1${NC}"; sleep 0.2; }
+print_success() { echo -e "  ${GREEN}✔ $1${NC}\n"; sleep 0.5; }
 
 # ==========================================
 # Main Execution Flow
@@ -83,9 +66,11 @@ print_success "Environment mapped"
 
 # --- STEP 2: DEPENDENCIES ---
 print_step "Fetching Core Modules..."
-print_subtext "Installing Node.js, FFmpeg, and Build Tools"
-eval $CMD_UPDATE > /dev/null 2>&1
-eval $CMD_INSTALL > /dev/null 2>&1
+print_subtext "Terminal output enabled for system downloads..."
+echo -e "${DIM}======================================${NC}"
+eval $CMD_UPDATE
+eval $CMD_INSTALL
+echo -e "${DIM}======================================${NC}"
 print_success "Modules installed"
 
 # --- STEP 3: CLONING REPO ---
@@ -106,30 +91,26 @@ print_step "Building Backend Architecture..."
 cd server
 if [ -f "package.json" ]; then
     print_subtext "Installing NPM dependencies..."
-    npm install > /dev/null 2>&1
+    npm install
 else
     print_subtext "Initializing fresh NPM environment..."
-    npm init -y > /dev/null 2>&1
-    npm install express multer cors cookie-parser bcryptjs jsonwebtoken sqlite sqlite3 archiver fluent-ffmpeg > /dev/null 2>&1
+    npm init -y
+    npm install express multer cors cookie-parser bcryptjs jsonwebtoken sqlite sqlite3 archiver fluent-ffmpeg
 fi
 print_success "Architecture ready"
-
 
 # ==========================================
 # Final Success Screen
 # ==========================================
 clear
-echo -e "${GREEN}╭──────────────────────────────────────────────╮${NC}"
-echo -e "${GREEN}│${NC}                                              ${GREEN}│${NC}"
-echo -e "${GREEN}│${NC}         ${WHITE}${BOLD}✅ INSTALLATION COMPLETE${NC}             ${GREEN}│${NC}"
-echo -e "${GREEN}│${NC}                                              ${GREEN}│${NC}"
-echo -e "${GREEN}╰──────────────────────────────────────────────╯${NC}"
+echo -e "${GREEN}╭────────────────────────────────────╮${NC}"
+echo -e "${GREEN}│${NC}                                    ${GREEN}│${NC}"
+echo -e "${GREEN}│${NC}      ${WHITE}${BOLD}✅ SETUP COMPLETE${NC}             ${GREEN}│${NC}"
+echo -e "${GREEN}│${NC}                                    ${GREEN}│${NC}"
+echo -e "${GREEN}╰────────────────────────────────────╯${NC}"
 echo ""
 echo -e "${WHITE}To boot your personal vault, run:${NC}"
 echo ""
 echo -e "${CYAN}   cd rcloud/server${NC}"
 echo -e "${CYAN}   npm start${NC}"
-echo ""
-echo -e "${DIM}Your network IP will be printed on the screen.${NC}"
-echo -e "${DIM}Enter it into the R Cloud mobile app to connect.${NC}"
 echo ""
