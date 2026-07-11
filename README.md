@@ -64,8 +64,7 @@ R Cloud features a universal Text User Interface (TUI) installer. The bash scrip
 > **Automated Installation**
 > Execute the following command in your target directory to begin the automated setup:
 > ```bash
-> curl -O https://raw.githubusercontent.com/Ravjit-singh/rcloud/main/install.sh && chmod +x install.sh && ./install.sh
-
+> curl -O [https://raw.githubusercontent.com/Ravjit-singh/rcloud/main/install.sh](https://raw.githubusercontent.com/Ravjit-singh/rcloud/main/install.sh) && chmod +x install.sh && ./install.sh
 > ```
 
 ### Installation Sequence Details
