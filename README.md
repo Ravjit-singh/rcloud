@@ -28,7 +28,7 @@ R Cloud follows a monolithic, client-server architecture with hardware-accelerat
 | **Database** | SQLite3 (C++ Native) | A zero-configuration, transactional SQL database engine storing user states, file metadata, and folder hierarchies. |
 | **Media Engine** | FFmpeg, Sharp | Generates optimized .webp thumbnails for uploaded video and image files on the fly. |
 | **Web Interface** | HTML5, Tailwind CSS, JS | A responsive, DOM-manipulated graphical interface utilizing standard Material Design components. |
-| **Mobile Client** | Android (Kotlin), WebView | A dedicated application wrapper featuring native storage interception and system-level download management. |
+| **Mobile Native Apk** | Android (Kotlin), WebView | A dedicated application wrapper featuring native storage interception and system-level download management. |
 
 ## Core Features
 
