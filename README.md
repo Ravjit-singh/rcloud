@@ -33,7 +33,7 @@ R Cloud follows a monolithic, client-server architecture with hardware-accelerat
 ## Core Features
 
 ### File & Storage Management
- * **Hierarchical Storage:** Create nested folder structures with seamless navigation.
+ * **Storage Management:** Create nested folder structures with seamless navigation.
  * **File Operations:** Move, copy, rename, and securely delete files or entire folder trees.
  * **Batch Archiving:** Select multiple files or folders and download them dynamically as a compiled .zip archive.
  * **Recycle Bin:** Deleted items are moved to a trash state and can be restored or permanently destroyed.
