@@ -13,15 +13,41 @@ WHITE='\033[1;37m'
 NC='\033[0m'
 
 # ==========================================
-# UI Components
+# UI Components & Dynamic Scaling
 # ==========================================
 print_card_header() {
     clear
-    echo -e "${CYAN}╭────────────────────────────────────╮${NC}"
-    echo -e "${CYAN}│${NC}                                    ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC}       ${WHITE}${BOLD}☁️  R CLOUD SETUP${NC}          ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC}                                    ${CYAN}│${NC}"
-    echo -e "${CYAN}╰────────────────────────────────────╯${NC}"
+    # 1. Grab dynamic terminal width (default to 80 if undetected)
+    local term_width=$(tput cols 2>/dev/null || echo 80)
+    
+    # 2. Define the exact character width of our ASCII art (39 characters)
+    local art_width=39
+    
+    # 3. Calculate left padding to perfectly center the logo
+    local pad_len=$(( (term_width - art_width) / 2 ))     [[$pad_len -lt 0 ]] && pad_len=0
+    local pad=$(printf '\%*s' "$pad_len" '')
+    
+    # 4. Calculate padding for the subtitle text
+    local sub_pad_len=$(( (term_width - 26) / 2 ))     [[$sub_pad_len -lt 0 ]] && sub_pad_len=0
+    local sub_pad=$(printf '\%*s' "$sub_pad_len" '')
+
+    # 5. Generate a responsive, full-screen-width divider line
+    local divider=""
+    for (( i=0; i<term_width; i++ )); do
+        divider="${divider}─"
+    done
+
+    # 6. Render the perfectly centered, color-mapped UI
+    echo ""
+    echo -e "${pad}${CYAN} _____      ${WHITE} _____ _                 _${NC}"
+    echo -e "${pad}${CYAN}  |  __ \\   ${WHITE}  / ____\vert{} \vert{}               \vert{} \vert{}${NC}"
+    echo -e "${pad}${CYAN}  | |__) |  ${WHITE}\vert{} \vert{}    \vert{} \vert{} ___  _   _  __\vert{} \vert{}${NC}"
+    echo -e "${pad}${CYAN}  \vert{}  _  /${WHITE}| |    | |/ _ \\| | | |/ _\` |${NC}"
+    echo -e "${pad}${BLUE}  | | \\ \\   ${DIM}| |____| | (_) | |_| | (_| |${NC}"
+    echo -e "${pad}${BLUE}  |_|  \\_\\  ${DIM} \\_____|_|\\___/ \\__,_|\\__,_|${NC}"
+    echo ""
+    echo -e "${sub_pad}${WHITE}${BOLD}☁️  C L O U D   E N G I N E${NC}"
+    echo -e "${DIM}${divider}${NC}"
     echo ""
     sleep 0.5
 }
@@ -41,7 +67,7 @@ OS="$(uname -s)"
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
     ENV_TYPE="Termux (Android Native)"
     CMD_UPDATE="pkg update -y && pkg upgrade -y"
-    CMD_INSTALL="pkg install -y curl tar nodejs ffmpeg python make clang binutils"
+    CMD_INSTALL="pkg install -y curl tar nodejs ffmpeg python make clang binutils ncurses-utils"
 elif [ "$OS" == "Linux" ]; then
     ENV_TYPE="Linux Server"
     if command -v apt > /dev/null; then
@@ -49,10 +75,10 @@ elif [ "$OS" == "Linux" ]; then
         CMD_INSTALL="sudo apt install -y -qq curl tar nodejs npm ffmpeg python3 make build-essential"
     elif command -v yum > /dev/null; then
         CMD_UPDATE="sudo yum check-update -q"
-        CMD_INSTALL="sudo yum install -y -q curl tar nodejs npm ffmpeg python3 make gcc-c++"
+        CMD_INSTALL="sudo yum install -y -q curl tar nodejs npm ffmpeg python3 make gcc-c++ ncurses"
     elif command -v pacman > /dev/null; then
         CMD_UPDATE="sudo pacman -Sy --noconfirm"
-        CMD_INSTALL="sudo pacman -S --noconfirm curl tar nodejs npm ffmpeg python make gcc"
+        CMD_INSTALL="sudo pacman -S --noconfirm curl tar nodejs npm ffmpeg python make gcc ncurses"
     else
         CMD_UPDATE="echo 'Unsupported package manager'"
         CMD_INSTALL="echo 'Please install curl, tar, nodejs, npm, ffmpeg manually'"
@@ -60,7 +86,7 @@ elif [ "$OS" == "Linux" ]; then
 elif [ "$OS" == "Darwin" ]; then
     ENV_TYPE="macOS"
     CMD_UPDATE="brew update"
-    CMD_INSTALL="brew install curl tar node ffmpeg python make"
+    CMD_INSTALL="brew install curl tar node ffmpeg python make ncurses"
 else
     ENV_TYPE="Unknown ($OS)"
     CMD_UPDATE="echo ''"
