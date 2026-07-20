@@ -1,4 +1,4 @@
-l#!/bin/bash
+#!/bin/bash
 
 # ==========================================
 # ANSI Color & Style Definitions
@@ -41,21 +41,26 @@ OS="$(uname -s)"
 if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
     ENV_TYPE="Termux (Android Native)"
     CMD_UPDATE="pkg update -y && pkg upgrade -y"
-    # Added binutils for C++ database compilation
-    CMD_INSTALL="pkg install -y git nodejs ffmpeg python make clang binutils"
+    CMD_INSTALL="pkg install -y curl tar nodejs ffmpeg python make clang binutils"
 elif [ "$OS" == "Linux" ]; then
     ENV_TYPE="Linux Server"
-    if command -v apt &> /dev/null; then
-        CMD_UPDATE="sudo apt update -y"
-        CMD_INSTALL="sudo apt install -y git nodejs npm ffmpeg python3 make build-essential"
+    if command -v apt > /dev/null; then
+        CMD_UPDATE="sudo apt update -y -qq"
+        CMD_INSTALL="sudo apt install -y -qq curl tar nodejs npm ffmpeg python3 make build-essential"
+    elif command -v yum > /dev/null; then
+        CMD_UPDATE="sudo yum check-update -q"
+        CMD_INSTALL="sudo yum install -y -q curl tar nodejs npm ffmpeg python3 make gcc-c++"
+    elif command -v pacman > /dev/null; then
+        CMD_UPDATE="sudo pacman -Sy --noconfirm"
+        CMD_INSTALL="sudo pacman -S --noconfirm curl tar nodejs npm ffmpeg python make gcc"
     else
-        CMD_UPDATE="echo 'Package manager not apt, skipping update'"
-        CMD_INSTALL="echo 'Please install git, node, npm, ffmpeg manually'"
+        CMD_UPDATE="echo 'Unsupported package manager'"
+        CMD_INSTALL="echo 'Please install curl, tar, nodejs, npm, ffmpeg manually'"
     fi
 elif [ "$OS" == "Darwin" ]; then
     ENV_TYPE="macOS"
     CMD_UPDATE="brew update"
-    CMD_INSTALL="brew install git node ffmpeg python make"
+    CMD_INSTALL="brew install curl tar node ffmpeg python make"
 else
     ENV_TYPE="Unknown ($OS)"
     CMD_UPDATE="echo ''"
@@ -66,29 +71,30 @@ print_subtext "Detected: $ENV_TYPE"
 print_success "Environment mapped"
 
 # --- STEP 2: DEPENDENCIES ---
-print_step "Fetching Core Modules..."
+print_step "Fetching System Engines..."
 print_subtext "Terminal output enabled for system downloads..."
 echo -e "${DIM}======================================${NC}"
 eval $CMD_UPDATE
 eval $CMD_INSTALL
 echo -e "${DIM}======================================${NC}"
-print_success "Modules installed"
+print_success "System engines installed"
 
-# --- STEP 3: CLONING REPO ---
-print_step "Syncing R Cloud Engine..."
+# --- STEP 3: CURL SOURCING (ZERO-GIT) ---
+print_step "Pulling R Cloud Architecture..."
 if [ -d "rcloud" ]; then
-    print_subtext "Existing vault found. Updating..."
-    cd rcloud
-    git pull origin main > /dev/null 2>&1
-else
-    print_subtext "Downloading from secure repository..."
-    git clone https://github.com/Ravjit-singh/rcloud.git > /dev/null 2>&1
-    cd rcloud
+    print_subtext "Existing vault found. Wiping for clean install..."
+    rm -rf rcloud
 fi
-print_success "Codebase synchronized"
 
-# --- STEP 4: NPM INSTALL ---
-print_step "Building Backend Architecture..."
+mkdir -p rcloud
+cd rcloud
+
+print_subtext "Downloading via raw HTTPS stream..."
+curl -sL https://github.com/Ravjit-singh/rcloud/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
+print_success "Codebase localized & extracted"
+
+# --- STEP 4: HARDWARE-OPTIMIZED NPM INSTALL ---
+print_step "Compiling Backend Engine..."
 cd server
 
 # CRITICAL FIX FOR TERMUX SQLITE3 C++ COMPILATION
@@ -97,14 +103,19 @@ if [ -n "$PREFIX" ] && [[ "$PREFIX" == *com.termux* ]]; then
 fi
 
 if [ -f "package.json" ]; then
-    print_subtext "Installing NPM dependencies..."
-    npm install
+    print_subtext "Bypassing audits for instant module download..."
+    npm install --no-audit --no-fund --ignore-scripts
+    
+    print_subtext "Exterminating heavy dependencies (sharp)..."
+    npm uninstall sharp --silent
+    
+    print_subtext "Rebuilding SQLite Database Connector..."
+    npm rebuild sqlite3 --build-from-source
 else
-    print_subtext "Initializing fresh NPM environment..."
-    npm init -y
-    npm install express multer cors cookie-parser bcryptjs jsonwebtoken sqlite sqlite3 archiver fluent-ffmpeg
+    print_subtext "Critical Error: package.json not found in archive."
+    exit 1
 fi
-print_success "Architecture ready"
+print_success "Architecture fully compiled"
 
 # ==========================================
 # Final Success Screen
