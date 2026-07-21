@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==========================================
-# ANSI Color & Style Definitions
+# ANSI texts
 # ==========================================
 BOLD='\033[1m'
 DIM='\033[2m'
@@ -13,7 +13,7 @@ WHITE='\033[1;37m'
 NC='\033[0m'
 
 # ==========================================
-# UI Components & Dynamic Scaling
+# UI Components 
 # ==========================================
 print_card_header() {
     clear
